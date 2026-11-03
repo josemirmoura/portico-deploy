@@ -1,6 +1,6 @@
 # Pórtico Deploy | Plano canônico de execução
 
-**Estado-base verificado em 03/11/2026:** repositório `josemirmoura/portico-deploy`, HEAD `0de5b7dfa99e8fd5a8338da421aee6421c96fb2e`. CI de testes unitários e sintaxe aprovado nesse SHA; **sem comprovação de instalação E2E, publicação HTTP, persistência ou uso operacional no SRV-IA/VPS**. As issues são demandas, não provas de entrega.
+**Estado-base verificado em 03/11/2026:** repositório `josemirmoura/portico-deploy`, HEAD `0de5b7dfa99e8fd5a8338da421aee6421c96fb2e`. CI de testes unitários e sintaxe aprovado nesse SHA; **sem comprovação de instalação E2E, publicação HTTP, persistência ou uso operacional no SRV-IA/VPS**. As issues [#1](https://github.com/josemirmoura/portico-deploy/issues/1)–[#6](https://github.com/josemirmoura/portico-deploy/issues/6) são demandas, não provas de entrega.
 
 ## 1. Missão e resultado de produto
 
@@ -22,10 +22,10 @@ Princípio de execução: **GitHub Actions + GitHub CLI + SSH/Ansible apenas qua
 | --- | --- | --- | --- |
 | **M0 — Fundação** | Repositório, arquitetura, testes, motor de release estática, scripts iniciais de bootstrap e workflow | Código em GitHub + CI no SHA, **sem alegação de deploy real** | Nenhuma. **Já entregue parcialmente como base experimental** |
 | **M1 — Deploy estático seguro** | Corrigir falhas do bootstrap/runner; instalar e publicar em Linux descartável, negar entradas maliciosas; rollback e uninstall seguros | E2E com app sintético, workflow real, SHA, HTTP, rollback, cleanup, logs e checagem de fronteiras. Issues #1 e #2 | Nenhuma em servidores reais |
-| **M2 — Cadastro reutilizável** | `host enroll` uma vez; `app add` declarativo e idempotente; reconciliação e `app remove` sem perda de dados | Dois projetos isolados no mesmo host descartável, repetição sem duplicação, rollback da configuração, segurança por identidade | Nenhuma em servidores reais |
+| **M2 — Cadastro reutilizável** | `host enroll` uma vez; `app add` declarativo e idempotente; reconciliação e `app remove` sem perda de dados | Dois projetos isolados no mesmo host descartável, repetição sem duplicação, rollback da configuração, segurança por identidade. Issue #5 | Nenhuma em servidores reais |
 | **M3 — Deploy por comando** | Adaptador simples para comando autenticado da IA disparar e acompanhar workflow e rollback, sem permissões gerais | E2E real IA → GitHub → runner → health → status; autorização negativa; logs/correlação. Issue #3 | Conectar/autorizar integração da IA, somente quando indispensável |
 | **M4 — Aplicações reais e múltiplos destinos** | Um adaptador de **serviço** priorizado por uso (primeiro Python/Node sem privilégio amplo); registro de SRV-IA e VPS; Docker/Compose só após revisão específica | Publicação de app sintético por tipo e em hosts descartáveis distintos; falhas recuperadas; sem afetar redes, serviços ou projetos externos. Issue #4 | Aprovar quais aplicações e destinos entram no UAT |
-| **M5 — UAT, pacote e GO/NO-GO** | Release candidate por SHA, instalação reproduzível, segurança, runbook, documentação, métricas, limites e rollback demonstrados | Teste pessoal do proprietário em ambiente operacional autorizado + GO explícito; NO-GO mantém pré-lançamento | **UAT e decisão final GO/NO-GO** |
+| **M5 — UAT, pacote e GO/NO-GO** | Release candidate por SHA, instalação reproduzível, segurança, runbook, documentação, métricas, limites e rollback demonstrados | Teste pessoal do proprietário em ambiente operacional autorizado + GO explícito; NO-GO mantém pré-lançamento. Issue #6 | **UAT e decisão final GO/NO-GO** |
 
 **Regra de prioridade:** somente um marco ativo por vez. M0 é baseline; a próxima tarefa é **M1**. M2/M3/M4 não devem ser implementados em paralelo por conveniência. Testes e correções surgidos em um marco pertencem ao próprio marco.
 
@@ -46,7 +46,7 @@ Host e projeto têm autorização duradoura **revogável**, mas tokens, sessões
 
 ## 6. Rotina para continuidade por outra IA
 
-1. Ler `AGENTS.md` e este plano, HEAD, issues #1–#4 e CI; confrontar código com documentação.
+1. Ler `AGENTS.md` e este plano, HEAD, issues #1–#6 e CI; confrontar código com documentação.
 2. Escolher o **primeiro gate não cumprido**. Fazer a menor alteração necessária; testar e registrar prova no SHA exato. Não recomeçar arquitetura nem abrir novas frentes.
 3. Utilizar runner/VM descartável para M1–M4. **Não operar SRV-IA/VPS reais** sem autorização específica do proprietário.
 4. Após cada rodada: escrever marco atual, evidência obtida, bloqueio, uma próxima tarefa e eventual ação humana.
