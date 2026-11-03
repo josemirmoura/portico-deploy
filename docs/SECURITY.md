@@ -11,3 +11,5 @@
 9. Nenhum deploy real, alteração de firewall, proxy ou Docker está autorizado como efeito colateral da configuração deste repositório.
 
 Referência oficial: https://docs.github.com/en/actions/reference/security/secure-use
+
+10. O bootstrap --apply exige que a branch padrão seja main e que sua proteção seja verificável antes de registrar runner. Isso não substitui revisão de acesso ao repositório e às configurações dos workflows.

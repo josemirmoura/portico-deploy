@@ -37,3 +37,7 @@ Prepare arquivo TSV com projeto, repositório privado, host SSH e diretório de 
     bash scripts/setup-fleet.sh --file minha-frota.tsv --apply
 
 O segundo comando exige confirmação geral e autorização por projeto. O instalador não aplica mudanças irreversíveis sem passar por essas etapas. MVP: um repositório por destino; múltiplos ambientes para o mesmo repositório exigem evolução do workflow.
+
+## Bloqueio de inicialização insegura
+
+O modo --apply exige branch padrão main protegida no GitHub e falha fechado se a proteção não estiver configurada ou a credencial gh não conseguir consultá-la. Configure as regras de revisão de alteração em workflows antes de aprovar novos runners.

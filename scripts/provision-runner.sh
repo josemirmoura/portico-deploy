@@ -11,7 +11,7 @@ REPO="$1" PROJECT="$2" LABEL="$3" URL="$4" DIGEST="$5"
 [[ "$DIGEST" =~ ^[a-f0-9]{64}$ ]] || exit 2
 IFS= read -r TOKEN
 [[ "$TOKEN" =~ ^[A-Za-z0-9_-]{20,256}$ ]] || { echo 'Invalid registration token' >&2; exit 1; }
-USER="pd${PROJECT//-/}"
+USER="pd-$PROJECT"
 HOME_DIR="/var/lib/portico-deploy-runners/$PROJECT"
 APP_DIR="/opt/portico-deploy/apps/$PROJECT"
 if [[ -e "$HOME_DIR/.runner" || -e "$APP_DIR/current" ]]; then
@@ -22,15 +22,16 @@ if id "$USER" >/dev/null 2>&1; then
   echo 'STOP: runner user already exists; refuse account reuse.' >&2
   exit 1
 fi
+# Verify runner checksum before making persistent changes to the host.
+DOWNLOAD="$(mktemp)"
+trap 'rm -f "$DOWNLOAD"' EXIT
+curl --fail --location --silent --show-error --retry 3 "$URL" -o "$DOWNLOAD"
+printf '%s  %s\n' "$DIGEST" "$DOWNLOAD" | sha256sum --check --status || { echo 'Runner checksum mismatch' >&2; exit 1; }
 install -d -m 0755 /var/lib/portico-deploy-runners
 useradd --system --create-home --home-dir "$HOME_DIR" --shell /usr/sbin/nologin "$USER"
 install -d -m 0755 /opt/portico-deploy /opt/portico-deploy/apps
 install -d -o "$USER" -g "$USER" -m 0755 "$APP_DIR" "$APP_DIR/releases"
 install -d -o "$USER" -g "$USER" -m 0700 "$HOME_DIR"
-DOWNLOAD="$(mktemp)"
-trap 'rm -f "$DOWNLOAD"' EXIT
-curl --fail --location --silent --show-error --retry 3 "$URL" -o "$DOWNLOAD"
-printf '%s  %s\n' "$DIGEST" "$DOWNLOAD" | sha256sum --check --status || { echo 'Runner checksum mismatch' >&2; exit 1; }
 runuser -u "$USER" -- tar -xzf "$DOWNLOAD" -C "$HOME_DIR"
 cd "$HOME_DIR"
 runuser -u "$USER" -- ./config.sh --unattended --url "https://github.com/$REPO" --token "$TOKEN" --name "$LABEL" --labels "$LABEL" --work _work

@@ -47,6 +47,12 @@ fi
 printf 'Type project name to authorize bootstrap: '
 read -r CONFIRM
 [[ "$CONFIRM" == "$PROJECT" ]] || { echo "Cancelled"; exit 1; }
+BRANCH="$(gh repo view "$REPO" --json defaultBranchRef --jq .defaultBranchRef.name)"
+[[ "$BRANCH" == main ]] || { echo "STOP: MVP requires main as default branch." >&2; exit 1; }
+if ! gh api "repos/$REPO/branches/main/protection" >/dev/null 2>&1; then
+  echo "STOP: main branch protection missing or inaccessible; fail closed." >&2
+  exit 1
+fi
 if gh api "repos/$REPO/contents/.github/workflows/portico-deploy.yml" >/dev/null 2>&1; then
   echo 'STOP: workflow already exists. Review manually; bootstrap never overwrites it.' >&2; exit 1
 fi
