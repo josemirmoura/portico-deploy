@@ -19,4 +19,5 @@ jobs:
           python3 -m unittest discover -s tests -v
       - name: Validate shell
         run: |
-          bash -n scripts/*.sh
+          bash -n scripts/*.sh tests/*.sh
+          bash tests/test_setup_plan.sh
