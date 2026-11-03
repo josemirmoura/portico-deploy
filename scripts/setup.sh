@@ -115,6 +115,7 @@ echo 'Installing root-owned deploy code on selected host.'
 ssh -o BatchMode=yes "$HOST" 'sudo -n install -d -m 0755 /usr/local/libexec'
 ssh -o BatchMode=yes "$HOST" 'sudo -n tee /usr/local/libexec/portico-deploy-release.py >/dev/null && sudo -n chmod 0755 /usr/local/libexec/portico-deploy-release.py' < "$ROOT/scripts/release.py"
 ssh -o BatchMode=yes "$HOST" 'sudo -n tee /usr/local/libexec/portico-deploy-provision.sh >/dev/null && sudo -n chmod 0755 /usr/local/libexec/portico-deploy-provision.sh' < "$ROOT/scripts/provision-runner.sh"
+ssh -o BatchMode=yes "$HOST" 'sudo -n tee /usr/local/libexec/portico-deploy-disable-runner.sh >/dev/null && sudo -n chmod 0755 /usr/local/libexec/portico-deploy-disable-runner.sh' < "$ROOT/scripts/disable-runner.sh"
 TOKEN="$(gh api --method POST "repos/$REPO/actions/runners/registration-token" --jq .token)"
 if [[ -z "$TOKEN" ]]; then echo 'Unable to get token' >&2; exit 1; fi
 # Token via stdin, never passed as process argument or persisted by bootstrap.

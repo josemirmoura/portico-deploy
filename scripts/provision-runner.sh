@@ -36,6 +36,38 @@ runuser -u "$USER" -- tar -xzf "$DOWNLOAD" -C "$HOME_DIR"
 cd "$HOME_DIR"
 runuser -u "$USER" -- ./config.sh --unattended --url "https://github.com/$REPO" --token "$TOKEN" --name "$LABEL" --labels "$LABEL" --work _work
 unset TOKEN
-./svc.sh install "$USER"
-./svc.sh start
-echo "Runner configured: $LABEL; app scope: $APP_DIR"
+# Never execute runner-writable ./svc.sh as root: install a trusted systemd unit.
+UNIT="portico-deploy-$PROJECT.service"
+UNIT_PATH="/etc/systemd/system/$UNIT"
+if [[ -e "$UNIT_PATH" ]]; then
+  echo 'STOP: service unit already exists.' >&2; exit 1
+fi
+cat > "$UNIT_PATH" <<UNITFILE
+[Unit]
+Description=Portico Deploy isolated GitHub runner for $PROJECT
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+Group=$USER
+WorkingDirectory=$HOME_DIR
+ExecStart=/bin/bash $HOME_DIR/runsvc.sh
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$HOME_DIR $APP_DIR
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
+UNITFILE
+chmod 0644 "$UNIT_PATH"
+systemctl daemon-reload
+systemctl enable --now "$UNIT"
+systemctl is-active --quiet "$UNIT" || { echo 'Runner service failed to start' >&2; exit 1; }
+echo "Runner configured: $LABEL; app scope: $APP_DIR; unit: $UNIT"

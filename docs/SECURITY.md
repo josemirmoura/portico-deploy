@@ -15,3 +15,6 @@ Referência oficial: https://docs.github.com/en/actions/reference/security/secur
 10. O bootstrap --apply exige que a branch padrão seja main e que sua proteção seja verificável antes de registrar runner. Isso não substitui revisão de acesso ao repositório e às configurações dos workflows.
 
 11. PD_HEALTH_URL é controlada pelos administradores do repositório. Não aponte para credenciais, endpoints administrativos nem interfaces internas sensíveis; o host executa a requisição HTTP no contexto do runner.
+
+12. O serviço systemd é escrito pelo bootstrap root-owned; proíbe executar `./svc.sh` (localizado em diretório gravável pelo runner) com privilégios administrativos. `ExecStart` roda como usuário dedicado com `NoNewPrivileges`, `ProtectSystem=strict`, `PrivateTmp` e caminhos de escrita explícitos. Verificar E2E de execução real e de revogação.
+13. A revogação interrompe o serviço mesmo se o desregistro remoto falhar. Mantém arquivos e credenciais no host para reconciliação segura; o operador deve excluir o runner na interface GitHub caso uma falha persistente impeça o desregistro automático.

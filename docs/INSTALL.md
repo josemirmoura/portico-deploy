@@ -60,3 +60,7 @@ Para respeitar políticas que exigem revisão na branch `main`, agora existem do
 2. `bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --apply`: verifica se o workflow aprovado na `main` corresponde **exatamente** ao template e só então inicia o bootstrap do runner via SSH.
 
 O `--plan` permanece sem efeitos. Mudanças manuais no workflow exigirâo reconciliação antes de `--apply` por segurança. `--stage` usa uma branch determinística por projeto e para em caso de conflito; não força branches existentes. Não tentar usar `--apply` em um repositório sem o PR previamente incorporado. O passo de merge é um gate humano de revisão, mesmo se o restante da configuração for automatizado.
+
+## Revogação segura do runner
+
+`bash scripts/revoke.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --plan` mostra o escopo. `--apply` exige confirmação explícita, solicita token efêmero de desregistro ao GitHub, para o serviço systemd ANTES de remover o registro, invoca `config.sh remove` como usuário não privilegiado, desabilita e remove **somente a unit do Pórtico Deploy**. Preserva `/opt/portico-deploy/apps/app1`, usuário e `/var/lib/portico-deploy-runners/app1` por padrão, para inspeção e recuperação. Em falha de rede, a unit permanece parada; nova tentativa deve ser supervisionada. Não há limpeza de dados do usuário nem desinstalação do GitHub CLI.
