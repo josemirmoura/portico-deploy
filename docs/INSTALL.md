@@ -64,3 +64,5 @@ O `--plan` permanece sem efeitos. Mudanças manuais no workflow exigirâo reconc
 ## Revogação segura do runner
 
 `bash scripts/revoke.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --plan` mostra o escopo. `--apply` exige confirmação explícita, solicita token efêmero de desregistro ao GitHub, para o serviço systemd ANTES de remover o registro, invoca `config.sh remove` como usuário não privilegiado, desabilita e remove **somente a unit do Pórtico Deploy**. Preserva `/opt/portico-deploy/apps/app1`, usuário e `/var/lib/portico-deploy-runners/app1` por padrão, para inspeção e recuperação. Em falha de rede, a unit permanece parada; nova tentativa deve ser supervisionada. Não há limpeza de dados do usuário nem desinstalação do GitHub CLI.
+
+A verificação pós-deploy é executada por `/usr/local/libexec/portico-deploy-verify.sh`, código root-owned. A mesma rotina pode ser testada isoladamente com HTTP sintético; resultado positivo exige igualdade textual entre `portico-deploy-revision.txt` e o SHA esperado. Em qualquer falha, a rotina invoca o rollback e retorna erro. Se o rollback também falhar, imprime erro crítico e retorna status diferente.

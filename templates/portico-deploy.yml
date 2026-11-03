@@ -47,18 +47,4 @@ jobs:
         run: |
           set -euo pipefail
           /usr/bin/python3 /usr/local/libexec/portico-deploy-release.py --project '@@PROJECT@@' --sha "$PD_SHA" --archive "$RUNNER_TEMP/pd-artifact/site.tgz"
-          # Exactly matching the just-deployed revision defeats stale 200 responses.
-          if [[ ! "${PD_SITE_URL:-}" =~ ^https://[a-zA-Z0-9][a-zA-Z0-9.-]*(/[a-zA-Z0-9._/-]*)?$ ]]; then
-            echo 'PD_SITE_URL must be a reviewed HTTPS base URL (no query/fragment/port).'
-            echo 'Rolling back unverified deployment.'
-            /usr/bin/python3 /usr/local/libexec/portico-deploy-release.py --project '@@PROJECT@@' --rollback
-            exit 1
-          fi
-          REVISION_URL="${PD_SITE_URL%/}/portico-deploy-revision.txt"
-          REMOTE_SHA="$(curl --proto '=https' --tlsv1.2 --fail --silent --show-error --max-time 8 --retry 3 --retry-delay 2 "$REVISION_URL" || true)"
-          if [[ "$REMOTE_SHA" != "$PD_SHA" ]]; then
-            echo 'HTTP revision mismatch or unavailable. Rolling back.'
-            /usr/bin/python3 /usr/local/libexec/portico-deploy-release.py --project '@@PROJECT@@' --rollback
-            exit 1
-          fi
-          echo 'DEPLOYED AND HTTP REVISION VERIFIED'
+          /usr/bin/bash /usr/local/libexec/portico-deploy-verify.sh '@@PROJECT@@' "$PD_SHA" "${PD_SITE_URL:-}"
