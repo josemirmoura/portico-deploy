@@ -32,7 +32,8 @@ useradd --system --create-home --home-dir "$HOME_DIR" --shell /usr/sbin/nologin 
 install -d -m 0755 /opt/portico-deploy /opt/portico-deploy/apps
 install -d -o "$USER" -g "$USER" -m 0755 "$APP_DIR" "$APP_DIR/releases"
 install -d -o "$USER" -g "$USER" -m 0700 "$HOME_DIR"
-runuser -u "$USER" -- tar -xzf "$DOWNLOAD" -C "$HOME_DIR"
+# Root reads the verified 0600 temp archive; unprivileged tar extracts through stdin.
+cat "$DOWNLOAD" | runuser -u "$USER" -- tar -xzf - -C "$HOME_DIR"
 cd "$HOME_DIR"
 runuser -u "$USER" -- ./config.sh --unattended --url "https://github.com/$REPO" --token "$TOKEN" --name "$LABEL" --labels "$LABEL" --work _work
 unset TOKEN
