@@ -1,0 +1,48 @@
+name: Portico Deploy
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: portico-deploy-production
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build static artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "@@ASSET_DIR@@"
+          tar -czf "$RUNNER_TEMP/site.tgz" -C "@@ASSET_DIR@@" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-${{ github.sha }}
+          path: ${{ runner.temp }}/site.tgz
+          if-no-files-found: error
+          retention-days: 7
+  deploy:
+    needs: package
+    if: github.repository == '@@REPO@@' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.PD_AUTO_DEPLOY == 'true')
+    runs-on: [self-hosted, linux, x64, '@@RUNNER_LABEL@@']
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-${{ github.sha }}
+          path: ${{ runner.temp }}/pd-artifact
+      - name: Publish immutable release
+        shell: bash
+        env:
+          PD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 /usr/local/libexec/portico-deploy-release.py --project '@@PROJECT@@' --sha "$PD_SHA" --archive "$RUNNER_TEMP/pd-artifact/site.tgz"

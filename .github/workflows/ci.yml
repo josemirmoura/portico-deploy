@@ -1,0 +1,22 @@
+name: Portico Deploy | CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate Python
+        run: |
+          python3 -m compileall -q scripts tests
+          python3 -m unittest discover -s tests -v
+      - name: Validate shell
+        run: |
+          bash -n scripts/*.sh
