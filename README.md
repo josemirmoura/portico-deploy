@@ -39,7 +39,7 @@ A implantação requer que DONO/APLICACAO seja **privado**; este repositório de
 - Sem segredos em commits, logs ou parâmetros de comando.
 - Nenhuma alteração em Community/Infinity, VPS ou SRV-IA sem ação explícita e verificável do proprietário.
 
-Leia primeiro **[Plano canônico de execução](docs/EXECUTION_PLAN.md)**. Complementos: docs/ARCHITECTURE.md, docs/SECURITY.md e AGENTS.md.
+Leia primeiro **[Plano canônico de execução](docs/EXECUTION_PLAN.md)** e o **[relatório de evidências do M1](docs/M1_EVIDENCE.md)**. Complementos: docs/ARCHITECTURE.md, docs/SECURITY.md e AGENTS.md.
 
 ### Configuração de vários servidores
 
