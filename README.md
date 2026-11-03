@@ -10,14 +10,14 @@ Uma configuração inicial orientada pelo proprietário, depois: GitHub → test
 
 ### Primeiro adaptador: sites estáticos
 
-O MVP publica o conteúdo de um diretório de artefatos (por padrão, public/) como nova release em /opt/portico-deploy/apps/PROJETO/releases/SHA, atualiza o link current atomicamente e mantém previous para rollback. Não instala proxy, não abre portas e não manipula Docker. Projetos Python, Node e Docker precisam de adaptadores futuros; não usar este fluxo para publicar o ParecIA sem adaptação.
+O motor experimental do MVP publica o conteúdo de um diretório de artefatos (por padrão, public/) como nova release em /opt/portico-deploy/apps/PROJETO/releases/SHA, atualiza o link current atomicamente e mantém previous para rollback. Não instala proxy, não abre portas e não manipula Docker. Projetos Python, Node e Docker precisam de adaptadores futuros; não usar este fluxo para publicar o ParecIA sem adaptação.
 
 ## Instalação planejada
 
 Executar a partir de um computador administrador com bash, gh, ssh, curl, python3 e acesso SSH administrativo previamente configurado.
 
 1. Clonar e revisar este repositório em um commit fixo.
-2. Executar: bash scripts/setup.sh --repo DONO/APLICACAO --project meu-site --host usuario@servidor --runner-label pd-meu-site --plan
+2. Executar: bash scripts/setup.sh --repo DONO/APLICACAO --project meu-site --host usuario@servidor --plan
 3. Revisar o plano, requisitos de runner/infra e fronteiras de segurança.
 4. Executar o mesmo comando substituindo --plan por --apply, após autorização do proprietário.
 
@@ -39,7 +39,7 @@ A implantação requer que DONO/APLICACAO seja **privado**; este repositório de
 - Sem segredos em commits, logs ou parâmetros de comando.
 - Nenhuma alteração em Community/Infinity, VPS ou SRV-IA sem ação explícita e verificável do proprietário.
 
-Veja docs/ARCHITECTURE.md, docs/SECURITY.md e AGENTS.md.
+Leia primeiro **[Plano canônico de execução](docs/EXECUTION_PLAN.md)**. Complementos: docs/ARCHITECTURE.md, docs/SECURITY.md e AGENTS.md.
 
 ### Configuração de vários servidores
 
