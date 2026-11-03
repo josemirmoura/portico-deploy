@@ -42,6 +42,23 @@ class ReleaseTests(unittest.TestCase):
         pd.rollback(self.root)
         self.assertEqual((self.root / "current" / "index.html").read_bytes(), b"first")
 
+    def test_first_release_can_rollback_to_empty(self):
+        pack = Path(self.temp.name) / "first.tar.gz"
+        archive(pack, [("index.html", b"candidate", "file")])
+        pd.publish(self.root, "f" * 40, pack)
+        self.assertTrue((self.root / "current").is_symlink())
+        pd.rollback(self.root)
+        self.assertFalse((self.root / "current").is_symlink())
+        self.assertTrue((self.root / "releases" / ("f" * 40)).is_dir())
+
+    def test_refuse_bad_active_symlink_before_new_release(self):
+        (self.root / "current").symlink_to("../../etc")
+        pack = Path(self.temp.name) / "safe.tar.gz"
+        archive(pack, [("index.html", b"okay", "file")])
+        with self.assertRaises(ValueError):
+            pd.publish(self.root, "a" * 40, pack)
+        self.assertFalse((self.root / "releases" / ("a" * 40)).exists())
+
     def test_forbid_traversal(self):
         pack = Path(self.temp.name) / "bad.tar.gz"
         archive(pack, [("../../escape", b"oops", "file")])

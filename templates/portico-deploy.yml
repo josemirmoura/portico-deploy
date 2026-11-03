@@ -43,6 +43,16 @@ jobs:
         shell: bash
         env:
           PD_SHA: ${{ github.sha }}
+          PD_HEALTH_URL: ${{ vars.PD_HEALTH_URL }}
         run: |
           set -euo pipefail
           /usr/bin/python3 /usr/local/libexec/portico-deploy-release.py --project '@@PROJECT@@' --sha "$PD_SHA" --archive "$RUNNER_TEMP/pd-artifact/site.tgz"
+          if [[ -z "${PD_HEALTH_URL:-}" ]]; then
+            echo 'DEPLOYED, HTTP HEALTH NOT CHECKED: configure PD_HEALTH_URL'
+          elif ! curl --fail --silent --show-error --max-time 8 --retry 3 --retry-delay 2 "$PD_HEALTH_URL" >/dev/null; then
+            echo 'Healthcheck failed; rolling back.'
+            /usr/bin/python3 /usr/local/libexec/portico-deploy-release.py --project '@@PROJECT@@' --rollback
+            exit 1
+          else
+            echo 'DEPLOYED AND HEALTHCHECK PASSED'
+          fi

@@ -41,3 +41,7 @@ O segundo comando exige confirmação geral e autorização por projeto. O insta
 ## Bloqueio de inicialização insegura
 
 O modo --apply exige branch padrão main protegida no GitHub e falha fechado se a proteção não estiver configurada ou a credencial gh não conseguir consultá-la. Configure as regras de revisão de alteração em workflows antes de aprovar novos runners.
+
+## Verificação de saúde
+
+O workflow aceita a variável GitHub `PD_HEALTH_URL` (URL HTTP(S) de uma página pública ou endpoint de health). Quando configurada, faz a verificação após publicação e aciona rollback automático em falha; no primeiro deploy retorna ao estado vazio. A URL deve ser revisada para não expor serviços internos ao runner. Sem a variável o job marca explicitamente **HTTP não verificado**, e não conta como deploy operacional homologado.

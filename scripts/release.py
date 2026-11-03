@@ -105,8 +105,17 @@ def publish(root, sha, archive):
     with (root / ".deploy.lock").open("a+b") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         final = releases / sha
-        if final.exists():
+        if final.exists() or final.is_symlink():
             raise ValueError("SHA already deployed; replay blocked")
+        current = root / "current"
+        if current.exists() and not current.is_symlink():
+            raise ValueError("Current is not a symlink")
+        old_target = _target(current)
+        if old_target is not None:
+            if not old_target.startswith("releases/") or not SHA.fullmatch(old_target[9:]):
+                raise ValueError("Invalid active release link")
+            if not (root / old_target).is_dir():
+                raise ValueError("Active release directory missing")
         with tempfile.TemporaryDirectory(prefix=".stage-", dir=releases) as temp:
             stage = Path(temp)
             # Static assets must be readable by the existing web server without
@@ -125,12 +134,8 @@ def publish(root, sha, archive):
         previous = root / "previous"
         if current.exists() and not current.is_symlink():
             raise ValueError("Current is not a symlink")
-        old = _target(current)
-        # Only keep a previous pointer when it points to a known release.
-        if old is not None:
-            if not old.startswith("releases/") or not SHA.fullmatch(old[9:]):
-                raise ValueError("Unexpected current link target")
-            _swap(previous, old)
+        if old_target is not None:
+            _swap(previous, old_target)
         _swap(current, "releases/" + sha)
         _audit(root, "deploy", sha)
         return final
@@ -144,17 +149,21 @@ def rollback(root):
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         previous = root / "previous"
         old = _target(previous)
-        if old is None or not old.startswith("releases/") or not SHA.fullmatch(old[9:]):
-            raise ValueError("No valid previous release")
-        if not (root / old).is_dir():
-            raise ValueError("Previous release is missing")
         current = root / "current"
         now = _target(current)
-        if now and (not now.startswith("releases/") or not SHA.fullmatch(now[9:])):
-            raise ValueError("Invalid current release")
+        if now is None or not now.startswith("releases/") or not SHA.fullmatch(now[9:]):
+            raise ValueError("No valid current release")
+        if old is None:
+            # First deploy failed: restore pre-deploy empty state.
+            current.unlink()
+            _audit(root, "rollback-to-empty", now[9:])
+            return "empty"
+        if not old.startswith("releases/") or not SHA.fullmatch(old[9:]):
+            raise ValueError("Invalid previous release")
+        if not (root / old).is_dir():
+            raise ValueError("Previous release is missing")
         _swap(current, old)
-        if now:
-            _swap(previous, now)
+        _swap(previous, now)
         _audit(root, "rollback", old[9:])
         return old
 

@@ -13,3 +13,5 @@
 Referência oficial: https://docs.github.com/en/actions/reference/security/secure-use
 
 10. O bootstrap --apply exige que a branch padrão seja main e que sua proteção seja verificável antes de registrar runner. Isso não substitui revisão de acesso ao repositório e às configurações dos workflows.
+
+11. PD_HEALTH_URL é controlada pelos administradores do repositório. Não aponte para credenciais, endpoints administrativos nem interfaces internas sensíveis; o host executa a requisição HTTP no contexto do runner.
