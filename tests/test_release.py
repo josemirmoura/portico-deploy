@@ -59,6 +59,20 @@ class ReleaseTests(unittest.TestCase):
             pd.publish(self.root, "a" * 40, pack)
         self.assertFalse((self.root / "releases" / ("a" * 40)).exists())
 
+    def test_revision_marker_matches_deployed_commit(self):
+        pack = Path(self.temp.name) / "marker.tar.gz"
+        archive(pack, [("index.html", b"hello", "file")])
+        pd.publish(self.root, "d" * 40, pack)
+        marker = self.root / "current" / "portico-deploy-revision.txt"
+        self.assertEqual(marker.read_text(), "d" * 40 + "\n")
+
+    def test_revision_marker_cannot_be_overridden(self):
+        pack = Path(self.temp.name) / "forged.tar.gz"
+        archive(pack, [("portico-deploy-revision.txt", b"forged", "file")])
+        with self.assertRaises(ValueError):
+            pd.publish(self.root, "d" * 40, pack)
+        self.assertFalse((self.root / "current").exists())
+
     def test_forbid_traversal(self):
         pack = Path(self.temp.name) / "bad.tar.gz"
         archive(pack, [("../../escape", b"oops", "file")])

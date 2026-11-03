@@ -38,3 +38,7 @@
 ## Nova etapa: laboratório Linux real de duas jobs (pendente de CI neste commit)
 
 A workflow CI contém duas novas jobs `m1-disposable-host` e `m1-disposable-deploy`. A primeira constrói e envia artefato real via GitHub Actions; a segunda recebe o artefato em **outra VM efêmera**, cria conta Linux sem sudo/Docker, publica usando a implementação real, serve os arquivos por HTTP como `www-data`, verifica upgrade e rollback e destrói o laboratório. O teste deve ser comprovado pelo log e SHA da workflow após execução. **O laboratório não registra um self-hosted runner no GitHub**, portanto o gate de registro remoto do M1 continua pendente.
+
+## Gate HTTP: revisão vinculada ao SHA
+
+O workflow foi alterado para exigir `PD_SITE_URL` HTTPS com base pública; o engine inclui `portico-deploy-revision.txt` dentro da release; após o deploy o GitHub compara o conteúdo HTTP com o SHA esperado. Resposta 200 de versão antiga não é aceita. A ausência de URL ou incompatibilidade provoca rollback. **Aguardar CI no SHA desta alteração e E2E do workflow real em servidor de teste; não atribuir aceite antecipado.**

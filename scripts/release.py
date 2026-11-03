@@ -131,6 +131,12 @@ def publish(root, sha, archive):
                 os.umask(old_umask)
             if not any(stage.iterdir()):
                 raise ValueError("No extracted files")
+            # A public, immutable revision marker binds HTTP health to THIS release.
+            marker = stage / "portico-deploy-revision.txt"
+            if marker.exists() or marker.is_symlink():
+                raise ValueError("Reserved revision marker in deployment artifact")
+            marker.write_text(sha + "\n", encoding="ascii")
+            marker.chmod(0o644)
             # Atomic rename after full extraction; everything remains inside releases.
             os.rename(stage, final)
         current = root / "current"
