@@ -1,44 +1,42 @@
-# M1 | Evidências e bloqueadores para aceite
+# M1 | Relatório de evidências e gate final
 
-**Registro:** 03/11/2026. **Estado: PARCIAL, NÃO HOMOLOGADO.**
+**Data:** 03/11/2026. **Estado verificável: PARCIAL (M1 ainda aberto).**
+**Commit da implementação testada:** `62e61503762ec425a0b4fc9507d8b3a8448dd335`.
+**CI no mesmo SHA:** [GitHub Actions #41727251621](https://github.com/josemirmoura/portico-deploy/actions/runs/41727251621), resultado **SUCCESS** com três jobs.
 
-## Evidência verificável de CI
+## O que foi comprovado
 
-- Revisões de implementação: `02e125c7058c8ccb58117c3cce95502efa33bbe0` e `96858e9313807e081878fe48566d921c56bbe1bb` (workflow por PR).
-- [GitHub Actions CI PASS (HTTP/segurança)](https://github.com/josemirmoura/portico-deploy/actions/runs/41724328760) e [CI PASS (PR staging e aplicação com verificação)](https://github.com/josemirmoura/portico-deploy/actions/runs/41724918097).
-- 17 testes Python aprovados: pacote TAR regular/aninhado, rejeição de traversal, caminhos absolutos, hardlinks/symlinks, duplicados, tamanhos e número de entradas acima do limite, recuperação diante de pacote corrompido, prevenção de replay, validação de link ativo, primeira publicação e rollback.
-- Teste HTTP efêmero com servidor `127.0.0.1`: publicação v1 → leitura HTTP 200 → atualização v2 → leitura HTTP 200 → rollback v1 → leitura correta por HTTP.
-- 4 verificações shell aprovadas: plano sem alterações, recusa branch sem proteção, simulação de PR + aplicação do workflow aprovado com mocks, teste negativo de checksum antes de criação de conta.
-- Binários GitHub Actions pinados por SHA nas duas workflows; sem execução de PR no runner próprio.
+| Requisito | Resultado | Evidência |
+| --- | --- | --- |
+| Motor de release estática, travessia, links maliciosos, duplicatas, replay e limites | **PASS** | 19 testes Python na CI |
+| Instalação de workflow: `--plan`, `--stage` via PR e `--apply` após verificação | **PASS em mocks** | 5 verificações shell no job `tests` |
+| Fail-closed: branch sem proteção, repositório público, workflow adulterado, SHA de runner inválido | **PASS em mocks/CI** | Logs do job `tests` |
+| Transferência de artefatos reais entre dois jobs GitHub Actions | **PASS** | Jobs `m1-disposable-host` e `m1-disposable-deploy` |
+| Linux: criação de conta real sem sudo e sem grupo Docker | **PASS** | Job `m1-disposable-deploy` |
+| HTTP local: publicar v1, atualizar v2, verificar GET e restaurar v1 | **PASS** | `M1_HOSTED_LAB` |
+| systemd: instalar serviço root-owned com User=restrito, iniciar, parar e desabilitar | **PASS no host efêmero** | `M1_RUNNER_LIFECYCLE` |
+| Desativação: preservar dados da aplicação e arquivos do runner | **PASS no host efêmero** | `RUNNER REVOKED`; registro GitHub simulado |
+| Detectar resposta HTTP 200 de revisão obsoleta e acionar rollback | **PASS em mocks** | `test_verify_http.sh` |
+| Vínculo de revisão HTTP via `portico-deploy-revision.txt` | **PASS em testes unitários** | `test_revision_marker_*` |
 
-## Segurança comprovada apenas nestes testes
+## O que ainda não foi comprovado
 
-- Verificações locais recusam caminhos TAR perigosos e metadados não permitidos.
-- `--apply` não prossegue sem repositório privado e branch padrão `main` protegida/verificável.
-- Workflow staging ocorre via PR e sem SSH. O bootstrap recusa um workflow inexistente ou divergente na main antes de qualquer chamada SSH ao host.
-- Digest inválido do runner impede criação de usuário, comprovado com mock em runner descartável GitHub-hosted.
-- O workflow de app permite disparo manual e exige opt-in (`PD_AUTO_DEPLOY=true`) para deploy por push.
-- Healthcheck opcional `PD_HEALTH_URL` faz rollback em falha. **O caminho de healthcheck via runner real ainda não foi testado**.
+1. **Registro/desregistro real de um self-hosted runner no GitHub** com token de administração de um **repositório privado descartável**. O teste de systemd e das credenciais usou uma simulação explícita de `config.sh`, evitando tocar runners operacionais. Este é o gate de integração principal, ainda aberto.
+2. **Workflow `workflow_dispatch` realmente implantando no runner registrado** com pacote, SHA HTTP por HTTPS, rollback por falha e logs relacionados a um repositório privado de teste. A execução em duas VMs hospedadas pelo GitHub comprovou o transporte e a publicação, mas **não substitui o registro self-hosted**.
+3. **Teste real de `--stage` + PR review/merge + `--apply` e de `revoke.sh --apply`** contra as APIs do repositório descartável. Os testes atuais usam mocks de GitHub CLI.
 
-## Pendências que bloqueiam M1
+## Gate necessário para fechar M1
 
-1. **E2E REAL em Linux descartável com repositório PRIVADO de teste**: credencial administrativa para registro de runner, workflow publicado no GitHub, runner online, download/upload de artefato, primeira implantação e upgrade por `workflow_dispatch`, health real e rollback demonstrado no destino. Simulações locais e CI não substituem essa prova.
-2. **Revisão de isolamento do runner**: sem sudo/docker.sock, separação real de contas/diretórios, controle de quem edita workflows, atualização e revogação; registrar teste negativo cruzado entre projetos.
-3. **Fluxo protegido: implementação entregue, E2E real pendente.** `--stage` cria PR, não toca servidor; `--apply` verifica igualdade exata do workflow na `main` antes de SSH. Simulação aprovada [CI 41724918097](https://github.com/josemirmoura/portico-deploy/actions/runs/41724918097). Falta ensaio de criação/merge de PR em repositório privado descartável.
-4. **Recuperação/desinstalação**: procedimento de desregistro do runner e parada do serviço, sem apagar aplicações ou dados. A aplicação do instalador ainda não é transacional entre GitHub e host.
-5. **Aceite HTTP**: provar que o healthcheck corresponde à release atual (resposta 200 isolada pode identificar conteúdo anterior), registrar resultados no SHA e inventário/reversão.
-6. Corrigir quaisquer falhas identificadas nesses ensaios, obter CI no SHA final e atualizar docs/issue #1/#2.
+Disponibilizar um **repositório GitHub privado de teste** e uma **VM Linux efêmera sem serviços reais** (com acesso administrativo SSH temporário), além de credencial administrativa limitada ao repositório para autorizar os endpoints de registro e remoção de runners. A ligação GitHub desta conversa permite ler/escrever arquivos, workflows e issues, mas **não expõe as operações administrativas de runner e os segredos exigidos para essa etapa**.
 
-## Limites de autoridade
+Sequência de aceite: validar proteção de main e configuração; `setup.sh --plan`; `--stage`; revisar e fazer merge; `--apply`; comprovar runner online; publicar aplicação sintética por `workflow_dispatch`; verificar SHA servido por HTTPS; simular falha e conferir rollback; `revoke.sh --apply`; confirmar runner removido e arquivos preservados. Registrar ids, logs, SHA e resultado de cada operação.
 
-**Nenhuma execução de setup --apply, reboot, deploy, alteração de configuração ou instalação no SRV-IA ou VPS foi realizada neste trabalho.** O ParecIA mantém seu CI/CD independente e não foi migrado. Ambiente do teste HTTP: runner efêmero do GitHub, com serviço local sintético.
+**Restrição permanente:** não tocar SRV-IA, VPS, ParecIA, Community ou Infinity para esses testes sem autorização explícita e janela apropriada. Não reclassificar os testes com mocks como integração com GitHub real. Não declarar M1 concluído enquanto as três provas acima permanecerem ausentes.
 
-**Decisão:** M1 continua ativo. M2, M3 e M4 ficam bloqueados até que as pendências e os testes E2E reais sejam concluídos.
+## Arquivos de referência
+- `scripts/setup.sh`, `scripts/provision-runner.sh`, `scripts/disable-runner.sh`, `scripts/revoke.sh`
+- `scripts/release.py`, `scripts/verify-deploy.sh`
+- `tests/test_linux_host_lab.sh`, `tests/test_runner_lifecycle.sh`, `tests/test_verify_http.sh`
+- `docs/EXECUTION_PLAN.md` e [issue #1](https://github.com/josemirmoura/portico-deploy/issues/1)
 
-## Nova etapa: laboratório Linux real de duas jobs (pendente de CI neste commit)
-
-A workflow CI contém duas novas jobs `m1-disposable-host` e `m1-disposable-deploy`. A primeira constrói e envia artefato real via GitHub Actions; a segunda recebe o artefato em **outra VM efêmera**, cria conta Linux sem sudo/Docker, publica usando a implementação real, serve os arquivos por HTTP como `www-data`, verifica upgrade e rollback e destrói o laboratório. O teste deve ser comprovado pelo log e SHA da workflow após execução. **O laboratório não registra um self-hosted runner no GitHub**, portanto o gate de registro remoto do M1 continua pendente.
-
-## Gate HTTP: revisão vinculada ao SHA
-
-O workflow foi alterado para exigir `PD_SITE_URL` HTTPS com base pública; o engine inclui `portico-deploy-revision.txt` dentro da release; após o deploy o GitHub compara o conteúdo HTTP com o SHA esperado. Resposta 200 de versão antiga não é aceita. A ausência de URL ou incompatibilidade provoca rollback. **Aguardar CI no SHA desta alteração e E2E do workflow real em servidor de teste; não atribuir aceite antecipado.**
+**Próxima ação única:** E2E de registro real do runner no ambiente privado descartável. Até isso, M2 segue bloqueado.
