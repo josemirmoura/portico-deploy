@@ -31,7 +31,7 @@ done
 [[ "$HOST" =~ ^[A-Za-z0-9_][A-Za-z0-9_.@-]*$ ]] || { echo "Invalid host" >&2; exit 2; }
 [[ "$ASSET_DIR" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ && "$ASSET_DIR" != /* && "/$ASSET_DIR/" != *"/../"* ]] || { echo "Invalid asset dir" >&2; exit 2; }
 RUNNER_LABEL="pd-$PROJECT"
-for cmd in gh ssh python3 curl base64; do
+for cmd in gh ssh python3 curl base64 cmp; do
   command -v "$cmd" >/dev/null || { echo "Missing $cmd" >&2; exit 1; }
 done
 gh auth status >/dev/null
