@@ -45,3 +45,7 @@ O modo --apply exige branch padrão main protegida no GitHub e falha fechado se 
 ## Verificação de saúde
 
 O workflow aceita a variável GitHub `PD_HEALTH_URL` (URL HTTP(S) de uma página pública ou endpoint de health). Quando configurada, faz a verificação após publicação e aciona rollback automático em falha; no primeiro deploy retorna ao estado vazio. A URL deve ser revisada para não expor serviços internos ao runner. Sem a variável o job marca explicitamente **HTTP não verificado**, e não conta como deploy operacional homologado.
+
+## Ordem segura de configuração
+
+O instalador agora publica o workflow antes de modificar o servidor. Se o GitHub recusar o commit por proteção de branch, nenhum host será alterado; use um PR para introduzir o workflow e só depois reprovisione. Se o bootstrap do runner falhar após a criação do workflow, a variável PD_AUTO_DEPLOY permanece desativada, mas a reconciliação ainda é manual neste MVP. Não execute --apply às cegas em repositórios operacionais.

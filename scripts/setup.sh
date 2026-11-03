@@ -56,6 +56,21 @@ fi
 if gh api "repos/$REPO/contents/.github/workflows/portico-deploy.yml" >/dev/null 2>&1; then
   echo 'STOP: workflow already exists. Review manually; bootstrap never overwrites it.' >&2; exit 1
 fi
+echo 'Generating workflow in private app repository.'
+TMP_WORKFLOW="$(mktemp)"
+trap 'rm -f "$TMP_WORKFLOW"' EXIT
+PD_REPO="$REPO" PD_PROJECT="$PROJECT" PD_LABEL="$RUNNER_LABEL" PD_ASSET_DIR="$ASSET_DIR" PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$TMP_WORKFLOW" python3 - <<'PY'
+import os
+from pathlib import Path
+x=Path(os.environ["PD_SOURCE"]).read_text()
+for a,b in {
+ "@@REPO@@":os.environ["PD_REPO"],"@@PROJECT@@":os.environ["PD_PROJECT"],
+ "@@RUNNER_LABEL@@":os.environ["PD_LABEL"],"@@ASSET_DIR@@":os.environ["PD_ASSET_DIR"],
+}.items(): x=x.replace(a,b)
+Path(os.environ["PD_DEST"]).write_text(x)
+PY
+ENCODED="$(base64 -w0 "$TMP_WORKFLOW")"
+gh api --method PUT "repos/$REPO/contents/.github/workflows/portico-deploy.yml" -f 'message=chore: configure Portico Deploy manual workflow' -f "content=$ENCODED" >/dev/null
 ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" 'sudo -n true && command -v curl && command -v python3 && command -v tar && command -v sha256sum && command -v useradd && command -v systemctl' >/dev/null
 RUNNER_INFO="$(gh api repos/actions/runner/releases/latest | python3 -c '
 import json,re,sys
@@ -84,20 +99,7 @@ if [[ -z "$TOKEN" ]]; then echo 'Unable to get token' >&2; exit 1; fi
 # Token via stdin, never passed as process argument or persisted by bootstrap.
 printf '%s\n' "$TOKEN" | ssh -o BatchMode=yes "$HOST" "sudo -n bash /usr/local/libexec/portico-deploy-provision.sh '$REPO' '$PROJECT' '$RUNNER_LABEL' '$RUNNER_URL' '$RUNNER_SHA'"
 unset TOKEN
-echo 'Generating workflow in private app repository.'
-TMP_WORKFLOW="$(mktemp)"
-trap 'rm -f "$TMP_WORKFLOW"' EXIT
-PD_REPO="$REPO" PD_PROJECT="$PROJECT" PD_LABEL="$RUNNER_LABEL" PD_ASSET_DIR="$ASSET_DIR" PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$TMP_WORKFLOW" python3 - <<'PY'
-import os
-from pathlib import Path
-x=Path(os.environ["PD_SOURCE"]).read_text()
-for a,b in {
- "@@REPO@@":os.environ["PD_REPO"],"@@PROJECT@@":os.environ["PD_PROJECT"],
- "@@RUNNER_LABEL@@":os.environ["PD_LABEL"],"@@ASSET_DIR@@":os.environ["PD_ASSET_DIR"],
-}.items(): x=x.replace(a,b)
-Path(os.environ["PD_DEST"]).write_text(x)
-PY
-ENCODED="$(base64 -w0 "$TMP_WORKFLOW")"
-gh api --method PUT "repos/$REPO/contents/.github/workflows/portico-deploy.yml" -f 'message=chore: configure Portico Deploy manual workflow' -f "content=$ENCODED" >/dev/null
-echo 'CONFIGURED: workflow_dispatch enabled. Automatic deploy disabled unless PD_AUTO_DEPLOY=true.'
+
+echo 'CONFIGURED: protected-repository workflow created and dedicated runner provisioned.'
+echo 'Automatic deploy is disabled unless PD_AUTO_DEPLOY=true.'
 echo "Next: protect main & environment production; put static assets under '$ASSET_DIR'; invoke gh workflow run portico-deploy.yml -R '$REPO' --ref main."

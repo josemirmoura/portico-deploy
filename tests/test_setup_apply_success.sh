@@ -28,6 +28,7 @@ if [[ "$1 $2 $3" == 'api --method POST' ]]; then
   echo 'syntheticregistrtoken1234567890'; exit 0
 fi
 if [[ "$1 $2 $3" == 'api --method PUT' ]]; then
+  if [[ "${GH_FAIL_WORKFLOW:-0}" == 1 ]]; then exit 1; fi
   for part in "$@"; do
     if [[ "$part" == content=* ]]; then
       printf '%s' "${part#content=}" | base64 -d > "${PD_TEST_OUTPUT:?}"
@@ -51,4 +52,9 @@ grep -q "example/private-app" "$PD_TEST_OUTPUT"
 grep -q 'demo-site' "$PD_TEST_OUTPUT"
 grep -q 'test -d "dist"' "$PD_TEST_OUTPUT"
 [[ "$(wc -l < "$PD_TEST_SSH")" -ge 3 ]]
-echo 'PASS: setup pipeline simulated through workflow registration'
+BEFORE="$(wc -l < "$PD_TEST_SSH")"
+if printf '%s\n' demo-site | GH_FAIL_WORKFLOW=1 PATH="$TMP/bin:$PATH" bash "$ROOT/scripts/setup.sh" --repo example/private-app --project demo-site --host admin@remote --asset-dir dist --apply > "$TMP/failed" 2>&1; then
+  echo 'FAIL: accepted GitHub workflow registration failure' >&2; exit 1
+fi
+[[ "$(wc -l < "$PD_TEST_SSH")" == "$BEFORE" ]] || { echo 'FAIL: contacted host before workflow was published' >&2; exit 1; }
+echo 'PASS: setup pipeline simulated; GitHub failure cannot mutate host'
