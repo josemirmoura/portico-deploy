@@ -50,7 +50,7 @@ read -r CONFIRM
 if gh api "repos/$REPO/contents/.github/workflows/portico-deploy.yml" >/dev/null 2>&1; then
   echo 'STOP: workflow already exists. Review manually; bootstrap never overwrites it.' >&2; exit 1
 fi
-ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" 'sudo -n true && command -v curl && command -v python3 && command -v tar' >/dev/null
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" 'sudo -n true && command -v curl && command -v python3 && command -v tar && command -v sha256sum && command -v useradd && command -v systemctl' >/dev/null
 RUNNER_INFO="$(gh api repos/actions/runner/releases/latest | python3 -c '
 import json,re,sys
 x=json.load(sys.stdin)

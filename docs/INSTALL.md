@@ -23,7 +23,17 @@ Por padrão, o gatilho push executa build/teste do pacote, mas não envia deploy
 ### Limitações iniciais
 - Usuário do runner não pode alterar configuração do proxy, systemd global ou containers.
 - Não há healthcheck de serviço, apenas integridade do pacote e atualização atômica. Operador deve validar HTTP fora do workflow.
+- As releases de arquivos estáticos são legíveis por usuários locais, para permitir que o servidor web existente as sirva. Nunca coloque segredos no diretório de artefatos.
 - Implantação de aplicativos não estáticos requer adaptadores posteriores.
 - Não há rollback acionável via GitHub Actions nesta versão; somente função local segura implementada e testada.
 - O setup não é transacional entre host e GitHub: se a segunda etapa falhar, pode restar runner registrado e exigirá reconciliação.
 - Sem testes E2E em host real: a instalação precisa de UAT e autorização do operador.
+
+## Vários servidores com um comando
+
+Prepare arquivo TSV com projeto, repositório privado, host SSH e diretório de artefatos (veja examples/fleet.tsv). Execute:
+
+    bash scripts/setup-fleet.sh --file minha-frota.tsv --plan
+    bash scripts/setup-fleet.sh --file minha-frota.tsv --apply
+
+O segundo comando exige confirmação geral e autorização por projeto. O instalador não aplica mudanças irreversíveis sem passar por essas etapas. MVP: um repositório por destino; múltiplos ambientes para o mesmo repositório exigem evolução do workflow.

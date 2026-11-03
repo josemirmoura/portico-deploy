@@ -1,0 +1,4 @@
+# project<TAB>owner/private-repo<TAB>SSH-host<TAB>artifact-dir
+# Example ONLY. Replace values before running --apply.
+site-lab	josemirmoura/PRIVATE-APP-1	admin@SRV-IA	public
+site-vps	josemirmoura/PRIVATE-APP-2	admin@VPS	public

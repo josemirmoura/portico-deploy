@@ -40,3 +40,7 @@ A implantação requer que DONO/APLICACAO seja **privado**; este repositório de
 - Nenhuma alteração em Community/Infinity, VPS ou SRV-IA sem ação explícita e verificável do proprietário.
 
 Veja docs/ARCHITECTURE.md, docs/SECURITY.md e AGENTS.md.
+
+### Configuração de vários servidores
+
+Use scripts/setup-fleet.sh com um arquivo TSV seguindo examples/fleet.tsv. Plan primeiro, apply com aprovação explícita por projeto. Veja docs/INSTALL.md.

@@ -57,7 +57,7 @@ def unpack(archive, target):
                 raise ValueError("Archive exceeds maximum expanded size")
             dest.parent.mkdir(parents=True, exist_ok=True)
             # No overwrite, including duplicate file names in an archive.
-            fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640)
+            fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
             try:
                 with os.fdopen(fd, "wb") as out:
                     src = tf.extractfile(member)
@@ -109,7 +109,14 @@ def publish(root, sha, archive):
             raise ValueError("SHA already deployed; replay blocked")
         with tempfile.TemporaryDirectory(prefix=".stage-", dir=releases) as temp:
             stage = Path(temp)
-            unpack(archive, stage)
+            # Static assets must be readable by the existing web server without
+            # giving that service write access to the runner project.
+            stage.chmod(0o755)
+            old_umask = os.umask(0o022)
+            try:
+                unpack(archive, stage)
+            finally:
+                os.umask(old_umask)
             if not any(stage.iterdir()):
                 raise ValueError("No extracted files")
             # Atomic rename after full extraction; everything remains inside releases.

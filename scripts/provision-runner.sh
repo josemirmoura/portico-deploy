@@ -22,9 +22,10 @@ if id "$USER" >/dev/null 2>&1; then
   echo 'STOP: runner user already exists; refuse account reuse.' >&2
   exit 1
 fi
+install -d -m 0755 /var/lib/portico-deploy-runners
 useradd --system --create-home --home-dir "$HOME_DIR" --shell /usr/sbin/nologin "$USER"
 install -d -m 0755 /opt/portico-deploy /opt/portico-deploy/apps
-install -d -o "$USER" -g "$USER" -m 0700 "$APP_DIR" "$APP_DIR/releases"
+install -d -o "$USER" -g "$USER" -m 0755 "$APP_DIR" "$APP_DIR/releases"
 install -d -o "$USER" -g "$USER" -m 0700 "$HOME_DIR"
 DOWNLOAD="$(mktemp)"
 trap 'rm -f "$DOWNLOAD"' EXIT
