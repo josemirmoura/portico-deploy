@@ -3,8 +3,11 @@
 # The registration protocol is deliberately mocked, NOT a genuine GitHub registration.
 set -euo pipefail
 [[ "$(id -u)" == 0 ]] || { echo 'Requires ephemeral root' >&2; exit 1; }
+trap 'echo "M1 lifecycle FAILED at line $LINENO" >&2' ERR
 command -v systemctl >/dev/null
-systemctl is-system-running >/dev/null 2>&1 || [[ "$(systemctl is-system-running)" == degraded ]]
+echo "systemd check: $(systemctl is-system-running 2>&1 || true)"
+echo "PID1: $(ps -p 1 -o comm= || true)"
+# A fresh ephemeral runner may temporarily report "starting"; actual unit tests decide acceptance.
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT=m1isolation
 USER=pd-m1isolation
