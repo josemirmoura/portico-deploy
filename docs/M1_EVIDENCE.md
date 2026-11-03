@@ -34,3 +34,7 @@
 **Nenhuma execução de setup --apply, reboot, deploy, alteração de configuração ou instalação no SRV-IA ou VPS foi realizada neste trabalho.** O ParecIA mantém seu CI/CD independente e não foi migrado. Ambiente do teste HTTP: runner efêmero do GitHub, com serviço local sintético.
 
 **Decisão:** M1 continua ativo. M2, M3 e M4 ficam bloqueados até que as pendências e os testes E2E reais sejam concluídos.
+
+## Nova etapa: laboratório Linux real de duas jobs (pendente de CI neste commit)
+
+A workflow CI contém duas novas jobs `m1-disposable-host` e `m1-disposable-deploy`. A primeira constrói e envia artefato real via GitHub Actions; a segunda recebe o artefato em **outra VM efêmera**, cria conta Linux sem sudo/Docker, publica usando a implementação real, serve os arquivos por HTTP como `www-data`, verifica upgrade e rollback e destrói o laboratório. O teste deve ser comprovado pelo log e SHA da workflow após execução. **O laboratório não registra um self-hosted runner no GitHub**, portanto o gate de registro remoto do M1 continua pendente.
