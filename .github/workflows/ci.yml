@@ -67,3 +67,5 @@ jobs:
         env:
           M1_ARCHIVE: ${{ runner.temp }}/m1-download/site-v1.tgz
         run: sudo --preserve-env=M1_ARCHIVE bash tests/test_linux_host_lab.sh
+      - name: Exercise real systemd runner lifecycle using mock registration
+        run: sudo bash tests/test_runner_lifecycle.sh
