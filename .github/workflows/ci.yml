@@ -21,3 +21,5 @@ jobs:
         run: |
           bash -n scripts/*.sh tests/*.sh
           bash tests/test_setup_plan.sh
+          bash tests/test_setup_apply.sh
+          sudo bash tests/test_provision_checksum.sh
