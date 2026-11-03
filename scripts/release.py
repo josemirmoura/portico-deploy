@@ -57,7 +57,10 @@ def unpack(archive, target):
                 raise ValueError("Archive exceeds maximum expanded size")
             dest.parent.mkdir(parents=True, exist_ok=True)
             # No overwrite, including duplicate file names in an archive.
-            fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+            try:
+                fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+            except FileExistsError as exc:
+                raise ValueError("Duplicate archive member") from exc
             try:
                 with os.fdopen(fd, "wb") as out:
                     src = tf.extractfile(member)
