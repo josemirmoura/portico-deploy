@@ -13,10 +13,12 @@
 1. Clone com Git: git clone https://github.com/josemirmoura/portico-deploy.git
 2. Revise o código e fixe um commit ou tag de confiança.
 3. Planeje: bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --plan
-4. Autorize conscientemente: bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --apply
-5. Coloque artefatos estáticos em public/ do repositório de aplicação. Configure servidor web existente para apontar para /opt/portico-deploy/apps/app1/current.
-6. Dispare: gh workflow run portico-deploy.yml -R OWNER/PRIVATE-APP --ref main
-7. Confira status/steps/health externo e links atuais antes de considerar implantado.
+4. Abra PR do workflow: bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --stage
+5. Revise/merge a PR na main protegida.
+6. Autorize conscientemente o provisionamento: bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --apply
+7. Coloque artefatos estáticos em public/ do repositório de aplicação. Configure servidor web existente para apontar para /opt/portico-deploy/apps/app1/current.
+8. Dispare: gh workflow run portico-deploy.yml -R OWNER/PRIVATE-APP --ref main
+9. Confira status/steps/health externo e links atuais antes de considerar implantado.
 
 Por padrão, o gatilho push executa build/teste do pacote, mas não envia deploy. Para ativar CD em push, configure a variável do repositório PD_AUTO_DEPLOY=true depois de UAT. Revogar/excluir runner pelo GitHub e parar o serviço no host caso haja suspeita; não excluir dados de projetos automaticamente.
 
@@ -36,7 +38,7 @@ Prepare arquivo TSV com projeto, repositório privado, host SSH e diretório de 
     bash scripts/setup-fleet.sh --file minha-frota.tsv --plan
     bash scripts/setup-fleet.sh --file minha-frota.tsv --apply
 
-O segundo comando exige confirmação geral e autorização por projeto. O instalador não aplica mudanças irreversíveis sem passar por essas etapas. MVP: um repositório por destino; múltiplos ambientes para o mesmo repositório exigem evolução do workflow.
+O segundo comando exige confirmação geral e autorização por projeto; **antes**, execute --stage e incorpore os PRs de todos os projetos. O instalador não aplica mudanças irreversíveis sem passar por essas etapas. MVP: um repositório por destino; múltiplos ambientes para o mesmo repositório exigem evolução do workflow.
 
 ## Bloqueio de inicialização insegura
 
@@ -48,7 +50,7 @@ O workflow aceita a variável GitHub `PD_HEALTH_URL` (URL HTTP(S) de uma página
 
 ## Ordem segura de configuração
 
-O instalador agora publica o workflow antes de modificar o servidor. Se o GitHub recusar o commit por proteção de branch, nenhum host será alterado; use um PR para introduzir o workflow e só depois reprovisione. Se o bootstrap do runner falhar após a criação do workflow, a variável PD_AUTO_DEPLOY permanece desativada, mas a reconciliação ainda é manual neste MVP. Não execute --apply às cegas em repositórios operacionais.
+O instalador abre PR via --stage e não toca no servidor. --apply só opera após o workflow exato aparecer na main protegida. Se a PR for recusada, nenhum host será alterado. Se o bootstrap do runner falhar após a criação do workflow, a variável PD_AUTO_DEPLOY permanece desativada, mas a reconciliação ainda é manual neste MVP. Não execute --apply às cegas em repositórios operacionais.
 
 ## Configuração via PR de segurança (M1)
 
