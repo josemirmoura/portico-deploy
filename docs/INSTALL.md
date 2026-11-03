@@ -49,3 +49,12 @@ O workflow aceita a variável GitHub `PD_HEALTH_URL` (URL HTTP(S) de uma página
 ## Ordem segura de configuração
 
 O instalador agora publica o workflow antes de modificar o servidor. Se o GitHub recusar o commit por proteção de branch, nenhum host será alterado; use um PR para introduzir o workflow e só depois reprovisione. Se o bootstrap do runner falhar após a criação do workflow, a variável PD_AUTO_DEPLOY permanece desativada, mas a reconciliação ainda é manual neste MVP. Não execute --apply às cegas em repositórios operacionais.
+
+## Configuração via PR de segurança (M1)
+
+Para respeitar políticas que exigem revisão na branch `main`, agora existem dois comandos separados:
+
+1. `bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --stage`: cria uma branch e PR com o workflow, sem conectar ao servidor. Revise e faça merge obedecendo às proteções do repositório.
+2. `bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app1 --host admin@host --apply`: verifica se o workflow aprovado na `main` corresponde **exatamente** ao template e só então inicia o bootstrap do runner via SSH.
+
+O `--plan` permanece sem efeitos. Mudanças manuais no workflow exigirâo reconciliação antes de `--apply` por segurança. `--stage` usa uma branch determinística por projeto e para em caso de conflito; não força branches existentes. Não tentar usar `--apply` em um repositório sem o PR previamente incorporado. O passo de merge é um gate humano de revisão, mesmo se o restante da configuração for automatizado.

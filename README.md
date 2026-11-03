@@ -19,7 +19,8 @@ Executar a partir de um computador administrador com bash, gh, ssh, curl, python
 1. Clonar e revisar este repositório em um commit fixo.
 2. Executar: bash scripts/setup.sh --repo DONO/APLICACAO --project meu-site --host usuario@servidor --plan
 3. Revisar o plano, requisitos de runner/infra e fronteiras de segurança.
-4. Executar o mesmo comando substituindo --plan por --apply, após autorização do proprietário.
+4. Executar com --stage para abrir PR do workflow; revisar e fazer merge conforme branch protection.
+5. Executar com --apply após a aprovação e publicação do workflow na main.
 
 A implantação requer que DONO/APLICACAO seja **privado**; este repositório de código do Pórtico pode ser público. O setup não desativa regras de proteção do GitHub. Workflow de publicação é manual por padrão e inclui opção de auto deploy após configuração explícita de PD_AUTO_DEPLOY=true pelo proprietário. A aprovação de ambiente GitHub é recomendada.
 
