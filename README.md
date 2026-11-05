@@ -45,3 +45,10 @@ Leia primeiro **[Plano canônico de execução](docs/EXECUTION_PLAN.md)** e o **
 ### Configuração de vários servidores
 
 Use scripts/setup-fleet.sh com um arquivo TSV seguindo examples/fleet.tsv. Plan primeiro, apply com aprovação explícita por projeto. Veja docs/INSTALL.md.
+
+
+## Referência CI/CD operacional: ParecIA (05/11/2026)
+
+O ParecIA comprovou GitHub Actions, runner dedicado, deploy SHA a3f5949e1fb41dd16abcf919b3cacd69b28b6991, healthchecks HTTP 200 e snapshot no SRV-IA. Journal do runner registrou sucesso em 05/11/2026 às 21:06 UTC. O ensaio isolado de rollback restaurou quatro diretórios e preservou .private. Falha real e recuperação completa ainda não foram ensaiadas.
+
+Padrão reutilizável: PR revisado, CI, SHA autorizado, runner segregado, snapshot, healthcheck, registro da implantação e rollback. Preservar os adaptadores já existentes e os critérios de docs/EXECUTION_PLAN.md e docs/M1_EVIDENCE.md. Não aplicar scripts do ParecIA diretamente a projetos diferentes, pois possuem caminhos e serviços fixos. Novos adaptadores requerem homologação própria; verificações automáticas por deploy são obrigatórias. A operação do Pórtico Deploy ainda é experimental, com gates M1 específicos pendentes. VPS e serviços existentes permanecem inalterados.
