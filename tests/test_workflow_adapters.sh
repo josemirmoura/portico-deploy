@@ -17,8 +17,8 @@ render_workflow() {
   export PD_BUILD_DIR=dist
   export PD_COMPOSE_DIR=dist
   export PD_SOURCE="$ROOT/templates/portico-deploy.yml"
-  export PD_DEST=/tmp/rendered-workflow.yml
-  PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST=/tmp/rendered-workflow.yml python3 - <<'PY'
+  export PD_DEST="$(mktemp)"
+  PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$(mktemp)" python3 - <<'PY'
 import os
 from pathlib import Path
 p=Path(os.environ["PD_SOURCE"]).read_text()
@@ -39,16 +39,18 @@ PY
 
 # Test static adapter
 echo "=== Testing static adapter ==="
-render_workflow static site.tgz
+render_workflow static artifact.tgz
 if grep -q "static)" /tmp/rendered-workflow.yml; then
   echo "PASS: static adapter workflow contains static case"
 else
-  echo "FAIL: static adapter workflow missing static case"
+  echo "FAIL: static adapter workflow missing static case" >&2
+  exit 1
 fi
 if grep -q "tar -czf.*artifact.tgz" /tmp/rendered-workflow.yml; then
   echo "PASS: static adapter uses artifact.tgz"
 else
-  echo "FAIL: static adapter should use artifact.tgz"
+  echo "FAIL: static adapter should use artifact.tgz" >&2
+  exit 1
 fi
 
 # Test python adapter
@@ -57,7 +59,8 @@ render_workflow python artifact.tgz
 if grep -q "pip install -r requirements.txt" /tmp/rendered-workflow.yml; then
   echo "PASS: python adapter includes pip install"
 else
-  echo "FAIL: python adapter missing pip install"
+  echo "FAIL: python adapter missing pip install" >&2
+  exit 1
 fi
 
 # Test nodejs adapter
@@ -66,7 +69,8 @@ render_workflow nodejs artifact.tgz
 if grep -q "npm ci" /tmp/rendered-workflow.yml; then
   echo "PASS: nodejs adapter includes npm ci"
 else
-  echo "FAIL: nodejs adapter missing npm ci"
+  echo "FAIL: nodejs adapter missing npm ci" >&2
+  exit 1
 fi
 
 # Test docker-compose adapter
@@ -75,7 +79,8 @@ render_workflow docker-compose artifact.tgz
 if grep -q "docker-compose)" /tmp/rendered-workflow.yml; then
   echo "PASS: docker-compose adapter includes docker-compose case"
 else
-  echo "FAIL: docker-compose adapter missing docker-compose case"
+  echo "FAIL: docker-compose adapter missing docker-compose case" >&2
+  exit 1
 fi
 
 echo "=== All adapter workflow generation tests complete ==="
