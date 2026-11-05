@@ -53,3 +53,7 @@ Host e projeto têm autorização duradoura **revogável**, mas tokens, sessões
 5. Nenhum anúncio de v1.0, promoção para produção ou promessa "cole e use" sem M5, UAT e GO explícito.
 
 **Foco de produto:** um comando de instalação controlada e um comando de deploy auditável. Todo o resto deve justificar por que é necessário a esse fluxo.
+
+
+### Revisão do PR #8 (05/11/2026)
+O instalador habilita empacotamento estático, Python e Node.js mediante workflow específico. Docker/Compose permanece **bloqueado para instalação** porque o motor atual publica somente arquivos e não opera contêineres. A validação local e a CI da branch devem ser executadas antes do merge; execução em produção não foi homologada para os novos adaptadores.
