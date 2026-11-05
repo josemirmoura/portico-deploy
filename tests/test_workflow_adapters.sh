@@ -17,8 +17,8 @@ render_workflow() {
   export PD_BUILD_DIR=dist
   export PD_COMPOSE_DIR=dist
   export PD_SOURCE="$ROOT/templates/portico-deploy.yml"
-  export PD_DEST="$(mktemp)"
-  PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$(mktemp)" python3 - <<'PY'
+  export PD_DEST=/tmp/rendered-workflow.yml
+  PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST=/tmp/rendered-workflow.yml python3 - <<'PY'
 import os
 from pathlib import Path
 p=Path(os.environ["PD_SOURCE"]).read_text()
