@@ -22,7 +22,7 @@ if [[ ! -x "$HOME_DIR/config.sh" ]]; then
   exit 1
 fi
 cd "$HOME_DIR"
-if ! runuser -u "$USER" -- ./config.sh remove --unattended --token "$TOKEN"; then
+if ! runuser -u "$USER" -- ./config.sh remove --token "$TOKEN"; then
   echo "GitHub de-registration failed; runner remains stopped. Retry after repair." >&2
   exit 1
 fi
