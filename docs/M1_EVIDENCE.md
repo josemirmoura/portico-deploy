@@ -1,6 +1,6 @@
 # M1 | Relatório de evidências e gate final
 
-**Data:** 03/11/2026. **Estado verificável: PARCIAL (M1 ainda aberto).**
+**Data de encerramento:** 05/11/2026. **Estado verificável: CONCLUÍDO em laboratório descartável (M1).**
 **Commit da implementação testada:** `62e61503762ec425a0b4fc9507d8b3a8448dd335`.
 **CI no mesmo SHA:** [GitHub Actions #41727251621](https://github.com/josemirmoura/portico-deploy/actions/runs/41727251621), resultado **SUCCESS** com três jobs.
 
@@ -40,3 +40,18 @@ Sequência de aceite: validar proteção de main e configuração; `setup.sh --p
 - `docs/EXECUTION_PLAN.md` e [issue #1](https://github.com/josemirmoura/portico-deploy/issues/1)
 
 **Próxima ação única:** E2E de registro real do runner no ambiente privado descartável. Até isso, M2 segue bloqueado.
+
+
+## Homologação real e encerramento — 05/11/2026
+
+- Repositório privado sintético: `josemirmoura/portico-deploy-lab`; proteção `main`, `--plan`, `--stage` com PR #1 e `--apply` efetivo.
+- Laboratório isolado: contêiner LXD `portico-m1-lab` Ubuntu 24.04, usuário dedicado `pd-portico-lab`; GitHub runner 2.338.2 registrado, online e recebendo jobs.
+- Workflow real GitHub Actions **42132477726**: jobs `package` e `deploy` concluídos com **success**.
+- Verificação HTTPS do marcador `portico-deploy-revision.txt`: SHA esperado e publicado **`e9db833b42b6d99c7a5949b493414064b01c449c`**, iguais; TLS válido via Tailscale Funnel de laboratório.
+- Falhas anteriores verificaram rejeição de `PD_SITE_URL` ausente, certificado TLS inadequado, replay de SHA e falha de conectividade; nos casos de verificação posterior à publicação, o motor executou `Rollback: empty`. Rollback para uma versão anterior publicada não foi demonstrado neste E2E.
+- Revogação real: `scripts/revoke.sh --apply` produziu `Runner removed successfully` e `RUNNER REVOKED`; API GitHub retornou lista vazia de runners (`[]`). Dados locais preservados até descarte do contêiner.
+- Limpeza confirmada: LXD sem instâncias, Funnel de teste `:10000` desligado, regras UFW específicas do M1 removidas. Serviço preexistente Tailscale `:8788` preservado. LXD e bridge permanecem instalados no host.
+- Correções descobertas na homologação e incorporadas à `main`: `provision-runner.sh` inicia `run.sh` (commit `0199848`); verificador suporta porta HTTPS explícita (`7119e29`); `disable-runner.sh` remove argumento não suportado (`eefb90f`).
+- **Limites do aceite:** M1 comprova ciclo real de **deploy estático** em ambiente descartável e rollback por falha para estado vazio. Não comprova compatibilidade operacional de Python/Node.js, deploy Docker/Compose, UAT em SRV-IA/VPS operacionais ou rollback para release anterior em E2E. Esses itens não integram o aceite deste M1.
+
+**Resultado: M1 encerrado em laboratório; próximos marcos permanecem sujeitos aos próprios gates do plano canônico.**
