@@ -23,15 +23,15 @@ jobs:
           case "@@ARTIFACT_TYPE@@" in
             static)
               test -d "@@ASSET_DIR@@"
-              tar -czf "$RUNNER_TEMP/site.tgz" -C "@@ASSET_DIR@@" .
+              tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@ASSET_DIR@@" .
               ;;
             python)
-              pip install -r requirements.txt 2>/dev/null || true
+              pip install -r requirements.txt
               tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@APP_DIR@@" . --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='venv' --exclude='*.egg-info' --exclude='build' --exclude='dist'
               ;;
             nodejs)
               npm ci
-              npm run build 2>/dev/null || true
+              npm run build
               tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@BUILD_DIR@@" .
               ;;
             docker-compose)
