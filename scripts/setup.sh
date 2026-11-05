@@ -30,11 +30,11 @@ done
 
 # Derive archive filename from artifact type
 case "$ARTIFACT_TYPE" in
-  static) ARCHIVE_NAME="site.tgz" ;;
+  static) ARCHIVE_NAME="artifact.tgz" ;;
   python) ARCHIVE_NAME="artifact.tgz" ;;
   nodejs) ARCHIVE_NAME="artifact.tgz" ;;
-  docker-compose) ARCHIVE_NAME="artifact.tgz" ;;
-  *) ARCHIVE_NAME="site.tgz" ;;
+  docker-compose) echo "STOP: Docker/Compose packaging-only; deployment unsupported." >&2; exit 2 ;;
+  *) echo "Unsupported artifact type: $ARTIFACT_TYPE" >&2; exit 2 ;;
 esac
 
 # Directories for adapter-specific artifact packaging
@@ -74,7 +74,7 @@ echo 'Generating workflow in private app repository.'
 TMP_WORKFLOW="$(mktemp)"
 TMP_REMOTE="$(mktemp)"
 trap 'rm -f "$TMP_WORKFLOW" "$TMP_REMOTE"' EXIT
-PD_REPO="$REPO" PD_PROJECT="$PROJECT" PD_LABEL="$RUNNER_LABEL" PD_ASSET_DIR="$ASSET_DIR" PD_ARTIFACT_TYPE="$ARTIFACT_TYPE" PD_ARTIFACT_ARCHIVE="$ARCHIVE_NAME" PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$TMP_WORKFLOW" python3 - <<'PY'
+PD_REPO="$REPO" PD_PROJECT="$PROJECT" PD_LABEL="$RUNNER_LABEL" PD_ASSET_DIR="$ASSET_DIR" PD_ARTIFACT_TYPE="$ARTIFACT_TYPE" PD_ARTIFACT_ARCHIVE="$ARCHIVE_NAME" PD_APP_DIR="$PD_APP_DIR" PD_BUILD_DIR="$PD_BUILD_DIR" PD_COMPOSE_DIR="$PD_COMPOSE_DIR" PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$TMP_WORKFLOW" python3 - <<'PY'
 import os
 from pathlib import Path
 x=Path(os.environ["PD_SOURCE"]).read_text()
