@@ -27,7 +27,7 @@ jobs:
               ;;
             python)
               pip install -r requirements.txt
-              tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@APP_DIR@@" . --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='venv' --exclude='*.egg-info' --exclude='build' --exclude='dist'
+              tar -czf "$RUNNER_TEMP/artifact.tgz" --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='venv' --exclude='*.egg-info' --exclude='build' --exclude='dist' -C "@@APP_DIR@@" .
               ;;
             nodejs)
               npm ci
@@ -35,7 +35,8 @@ jobs:
               tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@BUILD_DIR@@" .
               ;;
             docker-compose)
-              tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@COMPOSE_DIR@@" .
+              echo "STOP: Docker/Compose deployment is not supported by the current unprivileged release engine" >&2
+              exit 2
               ;;
             *)
               echo "Unknown artifact type: @@ARTIFACT_TYPE@@" >&2
