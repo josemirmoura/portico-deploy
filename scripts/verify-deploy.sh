@@ -14,8 +14,8 @@ rollback() {
   }
   exit 1
 }
-if [[ ! "$SITE_URL" =~ ^https://[a-zA-Z0-9][a-zA-Z0-9.-]*(/[a-zA-Z0-9._/-]*)?$ ]]; then
-  echo 'PD_SITE_URL must be a reviewed public HTTPS base URL without query or port.' >&2
+if [[ ! "$SITE_URL" =~ ^https://[a-zA-Z0-9][a-zA-Z0-9.-]*(:[0-9]{1,5})?(/[a-zA-Z0-9._/-]*)?$ ]]; then
+  echo 'PD_SITE_URL must be a reviewed HTTPS base URL without query or fragment.' >&2
   rollback
 fi
 REMOTE_SHA="$(curl --proto '=https' --tlsv1.2 --fail --silent --show-error --max-time 8 --retry 3 --retry-delay 2 "${SITE_URL%/}/portico-deploy-revision.txt" || true)"
