@@ -7,17 +7,19 @@ REPO='' PROJECT='' HOST='' RUNNER_LABEL='' ASSET_DIR='public' MODE='plan'
 usage() {
   cat <<'HELP'
 Pórtico Deploy MVP, Linux x64.
-bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app --host user@host [--asset-dir public] [--plan|--stage|--apply]
+bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app --host user@host [--asset-dir public] [--artifact-type static|python|nodejs|docker-compose] [--plan|--stage|--apply]
 Default is --plan; --apply requires explicit project confirmation.
 Preconditions: gh auth with admin on repo, SSH host key trusted, remote passwordless sudo only for one-time bootstrap.
 HELP
 }
+ARTIFACT_TYPE='static'
 while (($#)); do
   case "$1" in
     --repo) REPO="${2:?missing repo}"; shift 2;;
     --project) PROJECT="${2:?missing project}"; shift 2;;
     --host) HOST="${2:?missing host}"; shift 2;;
     --asset-dir) ASSET_DIR="${2:?missing directory}"; shift 2;;
+    --artifact-type) ARTIFACT_TYPE="${2:?missing artifact type}"; shift 2;;
     --plan) MODE='plan'; shift;;
     --stage) MODE='stage'; shift;;
     --apply) MODE='apply'; shift;;
@@ -25,6 +27,20 @@ while (($#)); do
     *) echo "Unknown option: $1" >&2; usage; exit 2;;
   esac
 done
+
+# Derive archive filename from artifact type
+case "$ARTIFACT_TYPE" in
+  static) ARCHIVE_NAME="artifact.tgz" ;;
+  python) ARCHIVE_NAME="artifact.tgz" ;;
+  nodejs) ARCHIVE_NAME="artifact.tgz" ;;
+  docker-compose) echo "STOP: Docker/Compose packaging-only; deployment unsupported." >&2; exit 2 ;;
+  *) echo "Unsupported artifact type: $ARTIFACT_TYPE" >&2; exit 2 ;;
+esac
+
+# Directories for adapter-specific artifact packaging
+PD_APP_DIR="${APP_DIR:-${ASSET_DIR}}"
+PD_BUILD_DIR="${BUILD_DIR:-${ASSET_DIR}}"
+PD_COMPOSE_DIR="${COMPOSE_DIR:-${ASSET_DIR}}"
 
 [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "Invalid repo" >&2; exit 2; }
 [[ "$PROJECT" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "Invalid project" >&2; exit 2; }
@@ -58,13 +74,20 @@ echo 'Generating workflow in private app repository.'
 TMP_WORKFLOW="$(mktemp)"
 TMP_REMOTE="$(mktemp)"
 trap 'rm -f "$TMP_WORKFLOW" "$TMP_REMOTE"' EXIT
-PD_REPO="$REPO" PD_PROJECT="$PROJECT" PD_LABEL="$RUNNER_LABEL" PD_ASSET_DIR="$ASSET_DIR" PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$TMP_WORKFLOW" python3 - <<'PY'
+PD_REPO="$REPO" PD_PROJECT="$PROJECT" PD_LABEL="$RUNNER_LABEL" PD_ASSET_DIR="$ASSET_DIR" PD_ARTIFACT_TYPE="$ARTIFACT_TYPE" PD_ARTIFACT_ARCHIVE="$ARCHIVE_NAME" PD_APP_DIR="$PD_APP_DIR" PD_BUILD_DIR="$PD_BUILD_DIR" PD_COMPOSE_DIR="$PD_COMPOSE_DIR" PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$TMP_WORKFLOW" python3 - <<'PY'
 import os
 from pathlib import Path
 x=Path(os.environ["PD_SOURCE"]).read_text()
 for a,b in {
- "@@REPO@@":os.environ["PD_REPO"],"@@PROJECT@@":os.environ["PD_PROJECT"],
- "@@RUNNER_LABEL@@":os.environ["PD_LABEL"],"@@ASSET_DIR@@":os.environ["PD_ASSET_DIR"],
+ "@@REPO@@":os.environ["PD_REPO"],
+ "@@PROJECT@@":os.environ["PD_PROJECT"],
+ "@@RUNNER_LABEL@@":os.environ["PD_LABEL"],
+ "@@ASSET_DIR@@":os.environ["PD_ASSET_DIR"],
+ "@@ARTIFACT_TYPE@@":os.environ["PD_ARTIFACT_TYPE"],
+ "@@ARTIFACT_ARCHIVE@@":os.environ["PD_ARTIFACT_ARCHIVE"],
+ "@@APP_DIR@@":os.environ["PD_APP_DIR"],
+ "@@BUILD_DIR@@":os.environ["PD_BUILD_DIR"],
+ "@@COMPOSE_DIR@@":os.environ["PD_COMPOSE_DIR"],
 }.items(): x=x.replace(a,b)
 Path(os.environ["PD_DEST"]).write_text(x)
 PY

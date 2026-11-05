@@ -34,7 +34,7 @@ Princípio de execução: **GitHub Actions + GitHub CLI + SSH/Ansible apenas qua
 - Painel web próprio, cobrança/SaaS, marketplace, multi-tenant empresarial, Kubernetes, agente genérico de administração, root shell, alterações de Pórtico Community/Infinity.
 - Gerenciamento de DNS, Traefik, WireGuard, infraestrutura da VPS além do destino aprovado, e automação autônoma sem comando/agendamento autorizado.
 - Adaptação prematura do ParecIA: sua CI/CD atual funciona; **não substituir** antes de prova e GO específicos. Primeiro validar com aplicações descartáveis.
-- Suporte universal a toda stack. Docker/Compose é uma expansão condicionada a isolamento adequado, e **não deve bloquear** o aceite do MVP básico.
+- Suporte universal a toda stack. Docker/Compose é uma expansão condicionada a isolamento adequado, e **não deve bloquear** o aceite do MVP básico. **Novos adaptadores reutilizáveis: Python, Node.js e Docker/Compose**, que reutilizam os mecanismos de validação de SHA, isolamento, healthcheck e rollback já existentes no engine de CI/CD.
 
 ## 5. Evidências, métricas e segurança
 
@@ -53,3 +53,7 @@ Host e projeto têm autorização duradoura **revogável**, mas tokens, sessões
 5. Nenhum anúncio de v1.0, promoção para produção ou promessa "cole e use" sem M5, UAT e GO explícito.
 
 **Foco de produto:** um comando de instalação controlada e um comando de deploy auditável. Todo o resto deve justificar por que é necessário a esse fluxo.
+
+
+### Revisão do PR #8 (05/11/2026)
+O instalador habilita empacotamento estático, Python e Node.js mediante workflow específico. Docker/Compose permanece **bloqueado para instalação** porque o motor atual publica somente arquivos e não opera contêineres. A validação local e a CI da branch devem ser executadas antes do merge; execução em produção não foi homologada para os novos adaptadores.
