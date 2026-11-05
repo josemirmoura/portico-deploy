@@ -8,7 +8,16 @@ mkdir -p "$TMP/bin"
 export PD_TEST_OUTPUT="$TMP/approved-workflow.yml"
 export PD_TEST_SSH="$TMP/ssh-events"
 export PD_TEST_GH="$TMP/gh-events"
-PD_REPO=example/private-app PD_PROJECT=demo-site PD_LABEL=pd-demo-site PD_ASSET_DIR=dist PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$PD_TEST_OUTPUT" python3 - <<'PY'
+export PD_REPO=example/private-app
+export PD_PROJECT=demo-site
+export PD_LABEL=pd-demo-site
+export PD_ASSET_DIR=dist
+export PD_ARTIFACT_TYPE=static
+export PD_ARTIFACT_ARCHIVE=site.tgz
+export PD_APP_DIR=dist
+export PD_BUILD_DIR=dist
+export PD_COMPOSE_DIR=dist
+PD_SOURCE="$ROOT/templates/portico-deploy.yml" PD_DEST="$PD_TEST_OUTPUT" python3 - <<'PY'
 import os
 from pathlib import Path
 p=Path(os.environ["PD_SOURCE"]).read_text()
@@ -16,7 +25,12 @@ for a,b in {
     "@@REPO@@":os.environ["PD_REPO"],
     "@@PROJECT@@":os.environ["PD_PROJECT"],
     "@@RUNNER_LABEL@@":os.environ["PD_LABEL"],
-    "@@ASSET_DIR@@":os.environ["PD_ASSET_DIR"]
+    "@@ASSET_DIR@@":os.environ["PD_ASSET_DIR"],
+    "@@ARTIFACT_TYPE@@":os.environ["PD_ARTIFACT_TYPE"],
+    "@@ARTIFACT_ARCHIVE@@":os.environ["PD_ARTIFACT_ARCHIVE"],
+    "@@APP_DIR@@":os.environ["PD_APP_DIR"],
+    "@@BUILD_DIR@@":os.environ["PD_BUILD_DIR"],
+    "@@COMPOSE_DIR@@":os.environ["PD_COMPOSE_DIR"],
 }.items(): p=p.replace(a,b)
 Path(os.environ["PD_DEST"]).write_text(p)
 PY

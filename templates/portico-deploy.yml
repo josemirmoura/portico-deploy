@@ -16,16 +16,36 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Build static artifact
+      - name: Build artifact
         shell: bash
         run: |
           set -euo pipefail
-          test -d "@@ASSET_DIR@@"
-          tar -czf "$RUNNER_TEMP/site.tgz" -C "@@ASSET_DIR@@" .
+          case "@@ARTIFACT_TYPE@@" in
+            static)
+              test -d "@@ASSET_DIR@@"
+              tar -czf "$RUNNER_TEMP/site.tgz" -C "@@ASSET_DIR@@" .
+              ;;
+            python)
+              pip install -r requirements.txt 2>/dev/null || true
+              tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@APP_DIR@@" . --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='venv' --exclude='*.egg-info' --exclude='build' --exclude='dist'
+              ;;
+            nodejs)
+              npm ci
+              npm run build 2>/dev/null || true
+              tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@BUILD_DIR@@" .
+              ;;
+            docker-compose)
+              tar -czf "$RUNNER_TEMP/artifact.tgz" -C "@@COMPOSE_DIR@@" .
+              ;;
+            *)
+              echo "Unknown artifact type: @@ARTIFACT_TYPE@@" >&2
+              exit 1
+              ;;
+          esac
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: site-${{ github.sha }}
-          path: ${{ runner.temp }}/site.tgz
+          name: "artifact-${{ github.sha }}"
+          path: ${{ runner.temp }}/artifact.tgz
           if-no-files-found: error
           retention-days: 7
   deploy:
@@ -37,7 +57,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: site-${{ github.sha }}
+          name: "artifact-${{ github.sha }}"
           path: ${{ runner.temp }}/pd-artifact
       - name: Publish immutable release
         shell: bash
@@ -46,5 +66,5 @@ jobs:
           PD_SITE_URL: ${{ vars.PD_SITE_URL }}
         run: |
           set -euo pipefail
-          /usr/bin/python3 /usr/local/libexec/portico-deploy-release.py --project '@@PROJECT@@' --sha "$PD_SHA" --archive "$RUNNER_TEMP/pd-artifact/site.tgz"
+          /usr/bin/python3 /usr/local/libexec/portico-deploy-release.py --project '@@PROJECT@@' --sha "$PD_SHA" --archive "$RUNNER_TEMP/pd-artifact/@@ARTIFACT_ARCHIVE@@"
           /usr/bin/bash /usr/local/libexec/portico-deploy-verify.sh '@@PROJECT@@' "$PD_SHA" "${PD_SITE_URL:-}"
