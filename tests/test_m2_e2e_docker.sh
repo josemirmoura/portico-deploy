@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# M2 E2E REAL: two isolated apps from DIFFERENT repositories on one disposable host.
-# Uses a Docker Ubuntu container as the disposable host. No mocks of id/useradd/systemctl.
+# M2 E2E: two isolated apps from DIFFERENT repositories on one disposable host.
+# Uses a Docker Ubuntu container as the disposable host (real users, real filesystem).
+# NOTE: this is local-container integration, NOT remote-SSH E2E; it validates the
+# remote scripts' logic against a real Linux filesystem with real users/ownership.
 # Demonstrates: enrol host once -> add app A (repo1) -> add app B (repo2) -> isolation
 # -> remove A (data preserved) -> reconcile -> re-add A -> negative tests.
 # Evidence: SHA, commands, identities, directories, drift, preservation, reversibility.
@@ -117,7 +119,25 @@ docker exec -e PD_SKIP_SYSTEMD_CHECK=1 "$CONTAINER" /usr/local/libexec/portico-d
   ghost-app "$HOST" "$REPO1" "$STATE_FILE" > "$TMP/negative.out" 2>&1 || fail "negative remove should not fail"
 grep -q 'not registered; nothing to remove' "$TMP/negative.out" || { cat "$TMP/negative.out"; fail "negative remove message missing"; }
 
-# --- 9. Evidence summary ---
+# --- 9. Negative: repo B attempting to remove proj-a (fail-closed) ---
+echo '=== 9. Negative: cross-repo remove rejection ==='
+docker exec -e PD_SKIP_SYSTEMD_CHECK=1 "$CONTAINER" /usr/local/libexec/portico-deploy-app-remove.sh \
+  proj-a "$HOST" "$REPO2" "$STATE_FILE" > "$TMP/negative2.out" 2>&1 && fail "cross-repo remove should fail"
+grep -q 'does not match registered repo' "$TMP/negative2.out" || { cat "$TMP/negative2.out"; fail "cross-repo remove message missing"; }
+# proj-a must remain intact after rejected removal
+docker exec "$CONTAINER" test -d /opt/portico-deploy/apps/proj-a || fail "proj-a data deleted after rejected removal"
+docker exec "$CONTAINER" python3 -c "import json; s=json.load(open('$STATE_FILE')); assert 'proj-a' in s['apps']; assert s['apps']['proj-a']['repo']=='$REPO1'" || fail "proj-a state changed after rejected removal"
+echo "Command: docker exec $CONTAINER /usr/local/libexec/portico-deploy-app-remove.sh proj-a root@localhost $REPO2 $STATE_FILE (rejected)"
+
+# --- 10. Negative: app-add with different config for existing project ---
+echo '=== 10. Negative: config collision rejection ==='
+docker exec -e PD_SKIP_SYSTEMD_CHECK=1 "$CONTAINER" /usr/local/libexec/portico-deploy-app-add.sh \
+  proj-a "$HOST" "$REPO2" dist static staging "$STATE_FILE" > "$TMP/negative3.out" 2>&1 && fail "config collision should fail"
+grep -q 'refuse overwrite' "$TMP/negative3.out" || { cat "$TMP/negative3.out"; fail "config collision message missing"; }
+# proj-a must keep its original config
+docker exec "$CONTAINER" python3 -c "import json; s=json.load(open('$STATE_FILE')); assert s['apps']['proj-a']['repo']=='$REPO1'; assert s['apps']['proj-a']['environment']=='production'" || fail "proj-a config changed after rejected add"
+
+# --- 11. Evidence summary ---
 echo '=== EVIDENCE ==='
 echo "Container: $CONTAINER"
 echo "Image: $IMAGE"

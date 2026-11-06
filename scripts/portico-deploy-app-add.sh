@@ -35,9 +35,16 @@ ENROLLED_HOST="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))
 [[ "$ENROLLED_HOST" == "$HOST" ]] || { echo 'STOP: host mismatch with enrolment state' >&2; exit 1; }
 
 # Idempotency: if app already registered with same config, no-op.
+# If already registered with a DIFFERENT config, refuse to overwrite (no silent repo/environment migration).
 if python3 -c "import json,sys; s=json.load(open(sys.argv[1])); a=s.get('apps',{}).get(sys.argv[2],{}); sys.exit(0 if (a.get('project')==sys.argv[2] and a.get('host')==sys.argv[3] and a.get('repo')==sys.argv[4] and a.get('asset_dir')==sys.argv[5] and a.get('artifact_type')==sys.argv[6] and a.get('environment')==sys.argv[7]) else 1)" "$STATE_FILE" "$PROJECT" "$HOST" "$REPO" "$ASSET_DIR" "$ARTIFACT_TYPE" "$ENVIRONMENT" 2>/dev/null; then
   echo "APP_ADD_OK: project $PROJECT already registered identically; no changes."
   exit 0
+fi
+if python3 -c "import json,sys; sys.exit(0 if sys.argv[2] in json.load(open(sys.argv[1])).get('apps',{}) else 1)" "$STATE_FILE" "$PROJECT" 2>/dev/null; then
+  REGISTERED_REPO="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("apps",{}).get(sys.argv[2],{}).get("repo",""))' "$STATE_FILE" "$PROJECT" 2>/dev/null || true)"
+  REGISTERED_ENV="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("apps",{}).get(sys.argv[2],{}).get("environment",""))' "$STATE_FILE" "$PROJECT" 2>/dev/null || true)"
+  echo "STOP: project $PROJECT already registered (repo=$REGISTERED_REPO, env=$REGISTERED_ENV); refuse overwrite with repo=$REPO env=$ENVIRONMENT." >&2
+  exit 1
 fi
 
 # Refuse if a directory for this project already exists with different content.

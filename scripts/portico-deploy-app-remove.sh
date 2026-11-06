@@ -33,6 +33,10 @@ if ! python3 -c "import json,sys; sys.exit(0 if sys.argv[2] in json.load(open(sy
   exit 0
 fi
 
+# Fail-closed: REPO passed must match the repo registered for this project.
+REGISTERED_REPO="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("apps",{}).get(sys.argv[2],{}).get("repo",""))' "$STATE_FILE" "$PROJECT" 2>/dev/null || true)"
+[[ "$REGISTERED_REPO" == "$REPO" ]] || { echo "STOP: repo $REPO does not match registered repo $REGISTERED_REPO for project $PROJECT; refuse removal." >&2; exit 1; }
+
 # Verify unit identity before touching anything.
 if [[ -f "$UNIT_PATH" ]]; then
   if ! grep -Fxq "User=$RUNNER_USER" "$UNIT_PATH"; then
