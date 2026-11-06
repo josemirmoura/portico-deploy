@@ -7,13 +7,14 @@ REPO='' PROJECT='' HOST='' RUNNER_LABEL='' ASSET_DIR='public' MODE='plan'
 usage() {
   cat <<'HELP'
 Pórtico Deploy MVP, Linux x64.
-bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app --host user@host [--asset-dir public] [--artifact-type static|python|nodejs|docker-compose] [--plan|--stage|--apply]
+bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app --host user@host [--asset-dir public] [--artifact-type static|python|nodejs|docker-compose] [--environment production] [--plan|--stage|--apply|--enroll|--app-add|--app-remove]
 Default is --plan; --apply requires explicit project confirmation.
 Preconditions: gh auth with admin on repo, SSH host key trusted, remote passwordless sudo only for one-time bootstrap.
 HELP
 }
 ARTIFACT_TYPE='static'
-ENROLL_HOST = 'no'
+ENVIRONMENT='production'
+ENROLL_HOST='no'
 while (($#)); do
   case "$1" in
     --repo) REPO="${2:?missing repo}"; shift 2;;
@@ -21,6 +22,7 @@ while (($#)); do
     --host) HOST="${2:?missing host}"; shift 2;;
     --asset-dir) ASSET_DIR="${2:?missing directory}"; shift 2;;
     --artifact-type) ARTIFACT_TYPE="${2:?missing artifact type}"; shift 2;;
+    --environment) ENVIRONMENT="${2:?missing environment}"; shift 2;;
     --plan) MODE='plan'; shift;;
     --stage) MODE='stage'; shift;;
     --apply) MODE='apply'; shift;;
@@ -50,6 +52,7 @@ PD_COMPOSE_DIR="${COMPOSE_DIR:-${ASSET_DIR}}"
 [[ "$PROJECT" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "Invalid project" >&2; exit 2; }
 [[ "$HOST" =~ ^[A-Za-z0-9_][A-Za-z0-9_.@-]*$ ]] || { echo "Invalid host" >&2; exit 2; }
 [[ "$ASSET_DIR" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ && "$ASSET_DIR" != /* && "/$ASSET_DIR/" != *"/../"* ]] || { echo "Invalid asset dir" >&2; exit 2; }
+[[ "$ENVIRONMENT" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "Invalid environment" >&2; exit 2; }
 RUNNER_LABEL="pd-$PROJECT"
 for cmd in gh ssh python3 curl base64 cmp; do
   command -v "$cmd" >/dev/null || { echo "Missing $cmd" >&2; exit 1; }
@@ -62,57 +65,53 @@ echo "Target path: /opt/portico-deploy/apps/$PROJECT"
 echo 'Bootstrap will create a dedicated unprivileged account, a runner service and a workflow in the app repo.'
 echo 'It will not change reverse proxy, TLS, DNS, Docker or existing projects.'
 if [[ "$MODE" == plan ]]; then
-  echo 'PLAN ONLY. Nothing was changed. Use --stage to open a PR, merge the approved workflow, then --apply or --enroll or --app-add.'
+  echo 'PLAN ONLY. Nothing was changed. Use --stage to open a PR, merge the approved workflow, then --apply or --enroll or --app-add or --app-remove.'
   exit 0
 fi
 
-# M2: Mode-based execution
+# M2: Mode-based execution (remote via SSH, confirmed explicitly, idempotent).
+STATE_FILE='/var/lib/portico-deploy/state.json'
+REMOTE_SCRIPTS_DIR='/usr/local/libexec'
+
+deploy_remote_script() {
+  # $1 = local script path, $2 = remote script name.
+  local local_script="$1" remote_name="$2"
+  [[ -f "$local_script" ]] || { echo "STOP: missing local script $local_script" >&2; exit 1; }
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n install -d -m 0755 $REMOTE_SCRIPTS_DIR" >/dev/null
+  ssh -o BatchMode=yes "$HOST" "sudo -n tee $REMOTE_SCRIPTS_DIR/$remote_name >/dev/null && sudo -n chmod 0755 $REMOTE_SCRIPTS_DIR/$remote_name" < "$local_script"
+}
+
 if [[ "$MODE" == enroll ]]; then
-  echo "Running in enroll mode for project: $PROJECT"
-  if id "pd-$PROJECT" >/dev/null 2>&1; then
-    echo "Runner user pd-$PROJECT already exists - host already enrolled (idempotent)"
-  else
-    echo "Enrolling host - creating runner user and app directories"
-    useradd --system --create-home --home-dir "/var/lib/portico-deploy-runners/$PROJECT" --shell /usr/sbin/nologin "pd-$PROJECT"
-    install -d -m 0755 /opt/portico-deploy /opt/portico-deploy/apps
-    install -d -o "pd-$PROJECT" -g "pd-$PROJECT" -m 0755 "/opt/portico-deploy/apps/$PROJECT" "/opt/portico-deploy/apps/$PROJECT/releases"
+  if ! gh repo view "$REPO" --quiet --affiliated 2>/dev/null; then
+    echo "STOP: Repo not affiliated or accessible via GitHub" >&2
+    exit 1
   fi
-  echo "Host enrollment complete."
+  printf 'Type ENROLL-%s to authorize host enrolment: ' "$PROJECT"
+  read -r CONFIRM
+  [[ "$CONFIRM" == "ENROLL-$PROJECT" ]] || { echo "Cancelled"; exit 1; }
+  deploy_remote_script "$ROOT/scripts/portico-deploy-enroll.sh" portico-deploy-enroll.sh
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-enroll.sh '$HOST' '$STATE_FILE'" >&2
+  echo "ENROLL_OK: host $HOST enrolled (state: $STATE_FILE). Reusable by apps from any repository."
   exit 0
 fi
 
 if [[ "$MODE" == app-add ]]; then
-  echo "Running in app-add mode for project: $PROJECT"
-  if ! id "pd-$PROJECT" >/dev/null 2>&1; then
-    echo "STOP: Host not enrolled yet. Run --enroll first."
-    exit 1
-  fi
-  APP_DIR="/opt/portico-deploy/apps/$PROJECT"
-  if [ ! -d "$APP_DIR" ]; then
-    install -d -m 0755 "$APP_DIR" "$APP_DIR/releases"
-  fi
-  echo "App-add complete. Project $PROJECT is now configured on the enrolled host."
+  printf 'Type ADD-%s to authorize app registration: ' "$PROJECT"
+  read -r CONFIRM
+  [[ "$CONFIRM" == "ADD-$PROJECT" ]] || { echo "Cancelled"; exit 1; }
+  deploy_remote_script "$ROOT/scripts/portico-deploy-app-add.sh" portico-deploy-app-add.sh
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-app-add.sh '$PROJECT' '$HOST' '$REPO' '$ASSET_DIR' '$ARTIFACT_TYPE' '$ENVIRONMENT' '$STATE_FILE'" >&2
+  echo "APP_ADD_OK: project $PROJECT registered on host $HOST (repo=$REPO, env=$ENVIRONMENT)."
   exit 0
 fi
 
 if [[ "$MODE" == app-remove ]]; then
-  echo "Running in app-remove mode for project: $PROJECT"
-  APP_DIR="/opt/portico-deploy/apps/$PROJECT"
-  if [ -d "$APP_DIR" ]; then
-    echo "Preserving app data in $APP_DIR"
-    chmod 0755 "$APP_DIR"
-  fi
-  SERVICE_UNIT="portico-deploy-$PROJECT.service"
-  SERVICE_PATH="/etc/systemd/system/$SERVICE_UNIT"
-  if [ -f "$SERVICE_PATH" ]; then
-    systemctl stop "$SERVICE_UNIT" 2>/dev/null || true
-    systemctl disable "$SERVICE_UNIT" 2>/dev/null || true
-    rm -f "$SERVICE_PATH"
-    systemctl daemon-reload
-    echo "Service $SERVICE_UNIT removed. App data preserved in $APP_DIR"
-  else
-    echo "Service unit not found - already removed"
-  fi
+  printf 'Type REMOVE-%s to authorize app removal (data preserved): ' "$PROJECT"
+  read -r CONFIRM
+  [[ "$CONFIRM" == "REMOVE-$PROJECT" ]] || { echo "Cancelled"; exit 1; }
+  deploy_remote_script "$ROOT/scripts/portico-deploy-app-remove.sh" portico-deploy-app-remove.sh
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-app-remove.sh '$PROJECT' '$HOST' '$REPO' '$STATE_FILE'" >&2
+  echo "APP_REMOVE_OK: project $PROJECT unregistered on host $HOST; data preserved."
   exit 0
 fi
 printf 'Type project name to authorize bootstrap: '
