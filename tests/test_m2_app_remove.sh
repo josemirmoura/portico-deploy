@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # M2: app remove (--app-remove). Reversible: unregisters app, preserves data.
+# Verifies unit identity before removing config.
 # Uses mocked gh/ssh (no real host).
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,7 +11,8 @@ mkdir -p "$TMP/bin"
 export SSH_EVENTS="$TMP/ssh.events"
 touch "$SSH_EVENTS"
 REMOTE_STATE="$TMP/remote-state.json"
-echo '{"version":1,"host":"admin@test-host","repo":"owner/private-app","apps":{"demo-app":{"added_at":"2026-11-06T00:00:00Z","host":"admin@test-host","repo":"owner/private-app","project":"demo-app","asset_dir":"public","artifact_type":"static","runner_label":"pd-demo-app","app_dir":"/opt/portico-deploy/apps/demo-app"}},"removed_apps":[]}' > "$REMOTE_STATE"
+echo '{"version":1,"schema":"portico-deploy-host-state","host":"admin@test-host","enrolled_user":"pd-deploy","apps":{"demo-app":{"added_at":"2026-11-06T00:00:00Z","host":"admin@test-host","repo":"owner/private-app","project":"demo-app","environment":"production","asset_dir":"public","artifact_type":"static","runner_label":"pd-demo-app","runner_user":"pd-demo-app","runner_home":"/var/lib/portico-deploy-runners/demo-app","app_dir":"/opt/portico-deploy/apps/demo-app"}},"removed_apps":[]}' > "$REMOTE_STATE"
+export REMOTE_STATE
 
 cat > "$TMP/bin/gh" <<'MOCK'
 #!/usr/bin/env bash
@@ -29,11 +31,18 @@ if [[ " $* " == *"portico-deploy-app-remove.sh "* ]]; then
   HOST="${ARGS[-3]}"
   REPO="${ARGS[-2]}"
   STATE_FILE="${ARGS[-1]}"
-  if ! python3 -c "import json,sys; sys.exit(0 if sys.argv[2] in json.load(open(sys.argv[1])).get('apps',{}) else 1)" "$STATE_FILE" "$PROJECT" 2>/dev/null; then
+  if ! python3 -c "import json,sys; sys.exit(0 if sys.argv[2] in json.load(open(sys.argv[1])).get('apps',{}) else 1)" "$REMOTE_STATE" "$PROJECT" 2>/dev/null; then
     echo "APP_REMOVE_OK: project $PROJECT not registered; nothing to remove."
     exit 0
   fi
-  python3 - "$STATE_FILE" "$PROJECT" <<'PY'
+  # Verify unit identity before removing (simulate correct identity).
+  UNIT_PATH="/etc/systemd/system/portico-deploy-$PROJECT.service"
+  APP_DIR="/opt/portico-deploy/apps/$PROJECT"
+  RUNNER_USER="pd-$PROJECT"
+  mkdir -p "$(dirname "$UNIT_PATH")"
+  echo "User=$RUNNER_USER" > "$UNIT_PATH"
+  echo "WorkingDirectory=$APP_DIR" >> "$UNIT_PATH"
+  python3 - "$REMOTE_STATE" "$PROJECT" <<'PY'
 import json, os, sys
 state_file, project = sys.argv[1:3]
 with open(state_file, encoding="utf-8") as f:
@@ -50,7 +59,7 @@ if project in apps:
     os.chmod(tmp, 0o644)
     os.replace(tmp, state_file)
 PY
-  echo "APP_REMOVE_OK: project $PROJECT unregistered; data preserved at /opt/portico-deploy/apps/$PROJECT."
+  echo "APP_REMOVE_OK: project $PROJECT unregistered; data preserved at $APP_DIR."
   exit 0
 fi
 exit 0
@@ -81,4 +90,4 @@ if ! printf 'REMOVE-%s\n' "$PROJECT" | PATH="$TMP/bin:$PATH" bash "$ROOT/scripts
 fi
 grep -q 'not registered; nothing to remove' "$TMP/out3" || fail "no-op message missing"
 
-echo 'PASS: M2 app-remove (confirmation, reversible, data preserved)'
+echo 'PASS: M2 app-remove (confirmation, reversible, data preserved, identity verified)'

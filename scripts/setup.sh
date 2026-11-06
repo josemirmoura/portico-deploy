@@ -7,12 +7,13 @@ REPO='' PROJECT='' HOST='' RUNNER_LABEL='' ASSET_DIR='public' MODE='plan'
 usage() {
   cat <<'HELP'
 Pórtico Deploy MVP, Linux x64.
-bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app --host user@host [--asset-dir public] [--artifact-type static|python|nodejs|docker-compose] [--plan|--stage|--apply]
+bash scripts/setup.sh --repo OWNER/PRIVATE-APP --project app --host user@host [--asset-dir public] [--artifact-type static|python|nodejs|docker-compose] [--environment production] [--plan|--stage|--apply|--enroll|--app-add|--app-remove]
 Default is --plan; --apply requires explicit project confirmation.
 Preconditions: gh auth with admin on repo, SSH host key trusted, remote passwordless sudo only for one-time bootstrap.
 HELP
 }
 ARTIFACT_TYPE='static'
+ENVIRONMENT='production'
 ENROLL_HOST='no'
 while (($#)); do
   case "$1" in
@@ -21,6 +22,7 @@ while (($#)); do
     --host) HOST="${2:?missing host}"; shift 2;;
     --asset-dir) ASSET_DIR="${2:?missing directory}"; shift 2;;
     --artifact-type) ARTIFACT_TYPE="${2:?missing artifact type}"; shift 2;;
+    --environment) ENVIRONMENT="${2:?missing environment}"; shift 2;;
     --plan) MODE='plan'; shift;;
     --stage) MODE='stage'; shift;;
     --apply) MODE='apply'; shift;;
@@ -50,6 +52,7 @@ PD_COMPOSE_DIR="${COMPOSE_DIR:-${ASSET_DIR}}"
 [[ "$PROJECT" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "Invalid project" >&2; exit 2; }
 [[ "$HOST" =~ ^[A-Za-z0-9_][A-Za-z0-9_.@-]*$ ]] || { echo "Invalid host" >&2; exit 2; }
 [[ "$ASSET_DIR" =~ ^[A-Za-z0-9][A-Za-z0-9_./-]*$ && "$ASSET_DIR" != /* && "/$ASSET_DIR/" != *"/../"* ]] || { echo "Invalid asset dir" >&2; exit 2; }
+[[ "$ENVIRONMENT" =~ ^[a-z][a-z0-9-]{1,20}$ ]] || { echo "Invalid environment" >&2; exit 2; }
 RUNNER_LABEL="pd-$PROJECT"
 for cmd in gh ssh python3 curl base64 cmp; do
   command -v "$cmd" >/dev/null || { echo "Missing $cmd" >&2; exit 1; }
@@ -62,7 +65,7 @@ echo "Target path: /opt/portico-deploy/apps/$PROJECT"
 echo 'Bootstrap will create a dedicated unprivileged account, a runner service and a workflow in the app repo.'
 echo 'It will not change reverse proxy, TLS, DNS, Docker or existing projects.'
 if [[ "$MODE" == plan ]]; then
-  echo 'PLAN ONLY. Nothing was changed. Use --stage to open a PR, merge the approved workflow, then --apply or --enroll or --app-add.'
+  echo 'PLAN ONLY. Nothing was changed. Use --stage to open a PR, merge the approved workflow, then --apply or --enroll or --app-add or --app-remove.'
   exit 0
 fi
 
@@ -87,8 +90,8 @@ if [[ "$MODE" == enroll ]]; then
   read -r CONFIRM
   [[ "$CONFIRM" == "ENROLL-$PROJECT" ]] || { echo "Cancelled"; exit 1; }
   deploy_remote_script "$ROOT/scripts/portico-deploy-enroll.sh" portico-deploy-enroll.sh
-  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-enroll.sh '$HOST' '$REPO' '$STATE_FILE'" >&2
-  echo "ENROLL_OK: host $HOST enrolled for repo $REPO (state: $STATE_FILE)."
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-enroll.sh '$HOST' '$STATE_FILE'" >&2
+  echo "ENROLL_OK: host $HOST enrolled (state: $STATE_FILE). Reusable by apps from any repository."
   exit 0
 fi
 
@@ -97,8 +100,8 @@ if [[ "$MODE" == app-add ]]; then
   read -r CONFIRM
   [[ "$CONFIRM" == "ADD-$PROJECT" ]] || { echo "Cancelled"; exit 1; }
   deploy_remote_script "$ROOT/scripts/portico-deploy-app-add.sh" portico-deploy-app-add.sh
-  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-app-add.sh '$PROJECT' '$HOST' '$REPO' '$ASSET_DIR' '$ARTIFACT_TYPE' '$STATE_FILE'" >&2
-  echo "APP_ADD_OK: project $PROJECT registered on host $HOST."
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-app-add.sh '$PROJECT' '$HOST' '$REPO' '$ASSET_DIR' '$ARTIFACT_TYPE' '$ENVIRONMENT' '$STATE_FILE'" >&2
+  echo "APP_ADD_OK: project $PROJECT registered on host $HOST (repo=$REPO, env=$ENVIRONMENT)."
   exit 0
 fi
 

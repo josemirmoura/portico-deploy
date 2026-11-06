@@ -2,6 +2,7 @@
 # Remote app removal (M2). Executed as root via SSH from setup.sh --app-remove.
 # Reversible: stops service and removes config, but preserves app data (releases/current/previous)
 # so the app can be re-added or restored without data loss.
+# Verifies unit identity before removing any files.
 # PD_ROOT overrides the filesystem root (used for tests/simulated hosts).
 set -euo pipefail
 [[ "$(id -u)" == 0 ]] || { echo 'Root required' >&2; exit 1; }
@@ -13,6 +14,7 @@ PROJECT="$1" HOST="$2" REPO="$3" STATE_FILE="$4"
 
 PD_ROOT="${PD_ROOT:-}"
 APP_DIR="${PD_ROOT}/opt/portico-deploy/apps/$PROJECT"
+RUNNER_USER="pd-$PROJECT"
 UNIT="portico-deploy-$PROJECT.service"
 UNIT_PATH="${PD_ROOT}/etc/systemd/system/$UNIT"
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -23,8 +25,7 @@ if [[ ! -f "$STATE_FILE" ]]; then
   exit 1
 fi
 ENROLLED_HOST="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("host",""))' "$STATE_FILE" 2>/dev/null || true)"
-ENROLLED_REPO="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("repo",""))' "$STATE_FILE" 2>/dev/null || true)"
-[[ "$ENROLLED_HOST" == "$HOST" && "$ENROLLED_REPO" == "$REPO" ]] || { echo 'STOP: host/repo mismatch with enrolment state' >&2; exit 1; }
+[[ "$ENROLLED_HOST" == "$HOST" ]] || { echo 'STOP: host mismatch with enrolment state' >&2; exit 1; }
 
 # App must be registered.
 if ! python3 -c "import json,sys; sys.exit(0 if sys.argv[2] in json.load(open(sys.argv[1])).get('apps',{}) else 1)" "$STATE_FILE" "$PROJECT" 2>/dev/null; then
@@ -32,12 +33,23 @@ if ! python3 -c "import json,sys; sys.exit(0 if sys.argv[2] in json.load(open(sy
   exit 0
 fi
 
-# Stop the runner service if it exists (data is preserved).
+# Verify unit identity before touching anything.
 if [[ -f "$UNIT_PATH" ]]; then
-  systemctl stop "$UNIT" 2>/dev/null || true
-  systemctl disable "$UNIT" 2>/dev/null || true
+  if ! grep -Fxq "User=$RUNNER_USER" "$UNIT_PATH"; then
+    echo "STOP: unit $UNIT has unexpected identity (expected User=$RUNNER_USER)" >&2
+    exit 1
+  fi
+  if ! grep -Fxq "WorkingDirectory=$APP_DIR" "$UNIT_PATH"; then
+    echo "STOP: unit $UNIT has unexpected path (expected WorkingDirectory=$APP_DIR)" >&2
+    exit 1
+  fi
+  # Stop first, so no new work can start. Fail closed if systemctl fails unexpectedly.
+  if [[ "${PD_SKIP_SYSTEMD_CHECK:-}" != "1" ]]; then
+    systemctl stop "$UNIT" || { echo "STOP: failed to stop unit $UNIT" >&2; exit 1; }
+    systemctl disable "$UNIT" || { echo "STOP: failed to disable unit $UNIT" >&2; exit 1; }
+    systemctl daemon-reload
+  fi
   rm -f -- "$UNIT_PATH"
-  systemctl daemon-reload
 fi
 
 # Remove app registration from state (reversible: data preserved on disk).
