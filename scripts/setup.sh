@@ -13,6 +13,7 @@ Preconditions: gh auth with admin on repo, SSH host key trusted, remote password
 HELP
 }
 ARTIFACT_TYPE='static'
+ENROLL_HOST = 'no'
 while (($#)); do
   case "$1" in
     --repo) REPO="${2:?missing repo}"; shift 2;;
@@ -23,6 +24,9 @@ while (($#)); do
     --plan) MODE='plan'; shift;;
     --stage) MODE='stage'; shift;;
     --apply) MODE='apply'; shift;;
+    --enroll) ENROLL_HOST='yes'; MODE='enroll'; shift;;
+    --app-add) MODE='app-add'; shift;;
+    --app-remove) MODE='app-remove'; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown option: $1" >&2; usage; exit 2;;
   esac
@@ -58,7 +62,57 @@ echo "Target path: /opt/portico-deploy/apps/$PROJECT"
 echo 'Bootstrap will create a dedicated unprivileged account, a runner service and a workflow in the app repo.'
 echo 'It will not change reverse proxy, TLS, DNS, Docker or existing projects.'
 if [[ "$MODE" == plan ]]; then
-  echo 'PLAN ONLY. Nothing was changed. Use --stage to open a PR, merge the approved workflow, then --apply.'
+  echo 'PLAN ONLY. Nothing was changed. Use --stage to open a PR, merge the approved workflow, then --apply or --enroll or --app-add.'
+  exit 0
+fi
+
+# M2: Mode-based execution
+if [[ "$MODE" == enroll ]]; then
+  echo "Running in enroll mode for project: $PROJECT"
+  if id "pd-$PROJECT" >/dev/null 2>&1; then
+    echo "Runner user pd-$PROJECT already exists - host already enrolled (idempotent)"
+  else
+    echo "Enrolling host - creating runner user and app directories"
+    useradd --system --create-home --home-dir "/var/lib/portico-deploy-runners/$PROJECT" --shell /usr/sbin/nologin "pd-$PROJECT"
+    install -d -m 0755 /opt/portico-deploy /opt/portico-deploy/apps
+    install -d -o "pd-$PROJECT" -g "pd-$PROJECT" -m 0755 "/opt/portico-deploy/apps/$PROJECT" "/opt/portico-deploy/apps/$PROJECT/releases"
+  fi
+  echo "Host enrollment complete."
+  exit 0
+fi
+
+if [[ "$MODE" == app-add ]]; then
+  echo "Running in app-add mode for project: $PROJECT"
+  if ! id "pd-$PROJECT" >/dev/null 2>&1; then
+    echo "STOP: Host not enrolled yet. Run --enroll first."
+    exit 1
+  fi
+  APP_DIR="/opt/portico-deploy/apps/$PROJECT"
+  if [ ! -d "$APP_DIR" ]; then
+    install -d -m 0755 "$APP_DIR" "$APP_DIR/releases"
+  fi
+  echo "App-add complete. Project $PROJECT is now configured on the enrolled host."
+  exit 0
+fi
+
+if [[ "$MODE" == app-remove ]]; then
+  echo "Running in app-remove mode for project: $PROJECT"
+  APP_DIR="/opt/portico-deploy/apps/$PROJECT"
+  if [ -d "$APP_DIR" ]; then
+    echo "Preserving app data in $APP_DIR"
+    chmod 0755 "$APP_DIR"
+  fi
+  SERVICE_UNIT="portico-deploy-$PROJECT.service"
+  SERVICE_PATH="/etc/systemd/system/$SERVICE_UNIT"
+  if [ -f "$SERVICE_PATH" ]; then
+    systemctl stop "$SERVICE_UNIT" 2>/dev/null || true
+    systemctl disable "$SERVICE_UNIT" 2>/dev/null || true
+    rm -f "$SERVICE_PATH"
+    systemctl daemon-reload
+    echo "Service $SERVICE_UNIT removed. App data preserved in $APP_DIR"
+  else
+    echo "Service unit not found - already removed"
+  fi
   exit 0
 fi
 printf 'Type project name to authorize bootstrap: '
