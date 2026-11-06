@@ -66,30 +66,49 @@ if [[ "$MODE" == plan ]]; then
   exit 0
 fi
 
-# M2: Mode-based execution
+# M2: Mode-based execution (remote via SSH, confirmed explicitly, idempotent).
+STATE_FILE='/var/lib/portico-deploy/state.json'
+REMOTE_SCRIPTS_DIR='/usr/local/libexec'
+
+deploy_remote_script() {
+  # $1 = local script path, $2 = remote script name.
+  local local_script="$1" remote_name="$2"
+  [[ -f "$local_script" ]] || { echo "STOP: missing local script $local_script" >&2; exit 1; }
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n install -d -m 0755 $REMOTE_SCRIPTS_DIR" >/dev/null
+  ssh -o BatchMode=yes "$HOST" "sudo -n tee $REMOTE_SCRIPTS_DIR/$remote_name >/dev/null && sudo -n chmod 0755 $REMOTE_SCRIPTS_DIR/$remote_name" < "$local_script"
+}
+
 if [[ "$MODE" == enroll ]]; then
-  # Validate host enrollment eligibility via GitHub repo pattern
-  # Mark enrollment state for remote SSH execution (no local user creation)
   if ! gh repo view "$REPO" --quiet --affiliated 2>/dev/null; then
-    echo "STOP: Repo not affiliated or accessible via GitHub"
+    echo "STOP: Repo not affiliated or accessible via GitHub" >&2
     exit 1
   fi
-  echo "Enroll mode validated - host marked for remote SSH enrollment"
+  printf 'Type ENROLL-%s to authorize host enrolment: ' "$PROJECT"
+  read -r CONFIRM
+  [[ "$CONFIRM" == "ENROLL-$PROJECT" ]] || { echo "Cancelled"; exit 1; }
+  deploy_remote_script "$ROOT/scripts/portico-deploy-enroll.sh" portico-deploy-enroll.sh
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-enroll.sh '$HOST' '$REPO' '$STATE_FILE'" >&2
+  echo "ENROLL_OK: host $HOST enrolled for repo $REPO (state: $STATE_FILE)."
   exit 0
 fi
 
 if [[ "$MODE" == app-add ]]; then
-  # Validate host enrollment via GitHub Actions workflow state
-  # App added marked for remote SSH configuration (no local directory creation)
-  ENROLL_HOST='yes'
-  echo "App-add mode validated - app configuration marked for remote SSH setup"
+  printf 'Type ADD-%s to authorize app registration: ' "$PROJECT"
+  read -r CONFIRM
+  [[ "$CONFIRM" == "ADD-$PROJECT" ]] || { echo "Cancelled"; exit 1; }
+  deploy_remote_script "$ROOT/scripts/portico-deploy-app-add.sh" portico-deploy-app-add.sh
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-app-add.sh '$PROJECT' '$HOST' '$REPO' '$ASSET_DIR' '$ARTIFACT_TYPE' '$STATE_FILE'" >&2
+  echo "APP_ADD_OK: project $PROJECT registered on host $HOST."
   exit 0
 fi
 
 if [[ "$MODE" == app-remove ]]; then
-  # Mark app removal state via GitHub workflow for remote SSH preservation
-  # App data preservation marked remotely - no local fs modification
-  echo "App-remove mode validated - app data preservation marked for remote SSH"
+  printf 'Type REMOVE-%s to authorize app removal (data preserved): ' "$PROJECT"
+  read -r CONFIRM
+  [[ "$CONFIRM" == "REMOVE-$PROJECT" ]] || { echo "Cancelled"; exit 1; }
+  deploy_remote_script "$ROOT/scripts/portico-deploy-app-remove.sh" portico-deploy-app-remove.sh
+  ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$HOST" "sudo -n $REMOTE_SCRIPTS_DIR/portico-deploy-app-remove.sh '$PROJECT' '$HOST' '$REPO' '$STATE_FILE'" >&2
+  echo "APP_REMOVE_OK: project $PROJECT unregistered on host $HOST; data preserved."
   exit 0
 fi
 printf 'Type project name to authorize bootstrap: '
